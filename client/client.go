@@ -3,7 +3,7 @@ package client
 import (
 	"bufio"
 	"errors"
-	"github.com/peakedshout/go-CFC/tool"
+	"go-CFC/tool"
 	"net"
 	"sync"
 	"time"

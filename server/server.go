@@ -2,17 +2,13 @@ package server
 
 import (
 	"bufio"
-	"github.com/peakedshout/go-CFC/tool"
+	"go-CFC/tool"
 	"log"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 )
-
-//func main() {
-//	NewServer("127.0.0.1", ":9999", "6a647c0bf889419c84e461486f83d776")
-//}
 
 type ServerContext struct {
 	ip   string
