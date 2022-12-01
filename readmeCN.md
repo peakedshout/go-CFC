@@ -18,7 +18,7 @@
   - ct（中转服务器、代理服务器）
     - import `import "github.com/peakedshout/go-CFC/server"`
     - ```
-       server.NewServer("IP", ":Port", "32位字母")
+       server.NewServer("IP", ":Port", "32byte")
       ```
   - server（监听连接）
     - import `import "github.com/peakedshout/go-CFC/client"`
