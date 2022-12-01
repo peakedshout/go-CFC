@@ -16,12 +16,12 @@
   - 我只是想ssh我的树莓派，尽管ssh出来的效果不是很满意（貌似是树莓派的终端问题，我不清楚，很头疼）
 - 怎么使用？
   - ct（中转服务器、代理服务器）
-    - import `import "CFC/server"`
+    - import `import "github.com/peakedshout/go-CFC/server"`
     - ```
        server.NewServer("IP", ":Port", "32位字母")
       ```
   - server（监听连接）
-    - import `import "CFC/client"`
+    - import `import "github.com/peakedshout/go-CFC/client"`
     - ```
       c, _ := client.LinkLongConn("sshServer", "IP", ":Port", "32byte")
       defer c.Close()
@@ -31,7 +31,7 @@
       })
       ```
   - client（请求连接）
-    - import `import "CFC/client"`
+    - import `import "github.com/peakedshout/go-CFC/client"`
     - ```
       c, _ := client.LinkLongConn("sshClient", "IP", ":Port", "32byte")
       defer c.Close()

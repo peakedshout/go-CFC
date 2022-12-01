@@ -16,12 +16,12 @@
   - I just want to ssh my raspberry PI, although the effect of ssh is not very satisfactory (it seems to be the terminal problem of Raspberry PI, I don't know, it is a headache).
 - How to use it?
   - ct(Transfer server, proxy server)
-    - import `import "CFC/server"`
+    - import `import "github.com/peakedshout/go-CFC/server"`
     - ```
        server.NewServer("IP", ":Port", "32byte")
       ```
   - server(Listening connection)
-    - import `import "CFC/client"`
+    - import `import "github.com/peakedshout/go-CFC/client"`
     - ```
       c, _ := client.LinkLongConn("sshServer", "IP", ":Port", "32byte")
       defer c.Close()
@@ -31,7 +31,7 @@
       })
       ```
   - client(Request a connection)
-    - import `import "CFC/client"`
+    - import `import "github.com/peakedshout/go-CFC/client"`
     - ```
       c, _ := client.LinkLongConn("sshClient", "IP", ":Port", "32byte")
       defer c.Close()
