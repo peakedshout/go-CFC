@@ -44,18 +44,4 @@ func test1() {
 		log.Println(p)
 		time.Sleep(1 * time.Second)
 	}
-
-	//scc, err := c.GetSubConn("test2")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//for {
-	//	_, err = scc.conn.Write([]byte("Hello! World!"))
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	time.Sleep(1 * time.Second)
-	//}
-	ch := make(chan uint8)
-	<-ch
 }
