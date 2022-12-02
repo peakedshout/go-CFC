@@ -2,7 +2,7 @@ package server
 
 import (
 	"bufio"
-	"go-CFC/tool"
+	"github.com/peakedshout/go-CFC/tool"
 	"log"
 	"net"
 	"sync"

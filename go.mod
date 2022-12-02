@@ -1,4 +1,4 @@
-module go-CFC
+module github.com/peakedshout/go-CFC
 
 go 1.19
 
