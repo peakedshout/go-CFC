@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/peakedshout/go-CFC/client"
+	"go-CFC/client"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 	"os"

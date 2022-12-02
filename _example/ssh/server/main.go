@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/creack/pty"
-	"github.com/peakedshout/go-CFC/client"
+	"go-CFC/client"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"log"
