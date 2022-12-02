@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"go-CFC/client"
-	"go-CFC/server"
+	"github.com/peakedshout/go-CFC/client"
+	"github.com/peakedshout/go-CFC/server"
 	"log"
 	"time"
 )
