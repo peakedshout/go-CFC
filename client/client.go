@@ -28,6 +28,9 @@ type ClientContext struct {
 }
 
 func newClient(name, ip, port, key string) *ClientContext {
+	if len(key) != 32 {
+		panic("key is not 32byte")
+	}
 	c := &ClientContext{
 		name:      name,
 		ip:        ip,

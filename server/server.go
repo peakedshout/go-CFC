@@ -41,6 +41,9 @@ type ClientInfo struct {
 }
 
 func NewServer(ip, port, key string) {
+	if len(key) != 32 {
+		panic("key is not 32byte")
+	}
 	s := &ServerContext{
 		ip:             ip,
 		port:           port,
