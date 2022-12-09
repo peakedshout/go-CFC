@@ -1,0 +1,33 @@
+{
+  "Ct": {
+    "?Ct": "Here is some information about the ct server",
+    "Key":"",
+    "?Key":"Enter the key of the ct server, 32bytes",
+    "Name": "",
+    "?Name": "Enter the name of the Client to be registered. If the client property exists, enter this parameter",
+    "?IP&?Port":"Enter the IP address of the ct server. If you need to listen to external networks, leave the IP address blank",
+    "IP": "",
+    "Port": ""
+  },
+  "Tcp": {
+    "?Tcp": "Fill in the information for the mount entity service. The ct server ignores this information because it is not needed",
+    "Server": [
+      {
+        "Name": "",
+        "?Name": "Fill in the name of the service to be registered here",
+        "?IP&?Port": "This fills in the address that the entity service listens to, and upon receipt of a connection request, requests that address for proxy",
+        "IP": "",
+        "Port": ""
+      }
+    ],
+    "Client": [
+      {
+        "Name": "",
+        "?Name": "Enter the service name of the client, corresponding to the service name of the other end",
+        "?IP&?Port": "This is the address that the entity client is going to connect to, and it's going to listen to that address when the program automates",
+        "IP": "",
+        "Port": ""
+      }
+    ]
+  }
+}
