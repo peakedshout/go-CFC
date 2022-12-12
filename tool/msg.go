@@ -103,6 +103,14 @@ func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
 	if err != nil {
 		return
 	}
+	if lens <= 0 {
+		err = errors.New("lens:" + "A negative number")
+		return
+	}
+	if lens >= 2097152 { //~2MB
+		err = errors.New("lens:" + "too long to 2MB")
+		return
+	}
 	if int64(reader.Buffered()) < lens+8 {
 		err = errors.New("lens:" + "bad")
 		return
