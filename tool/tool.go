@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -123,4 +124,70 @@ func Println(conn net.Conn, i ...any) {
 		iList = append(iList, one)
 	}
 	log.Println(iList...)
+}
+
+func toolHash(b []byte) []byte {
+	s := sha256.New()
+	s.Write(b)
+	return s.Sum(nil)
+}
+
+func (k *Key) assemblyBytes(bs [][]byte) [][]byte {
+	var bo [][]byte
+	l := len(bs)
+	for i, b1 := range bs {
+		lens := int64(len(b1) + 8 + 60 + 8 + 16) //ver len hash num... data
+		var pkg = new(bytes.Buffer)
+		//version
+		err := binary.Write(pkg, binary.LittleEndian, []byte(version))
+		if err != nil {
+			panic(err)
+		}
+		//len
+		err = binary.Write(pkg, binary.LittleEndian, lens)
+		if err != nil {
+			panic(err)
+		}
+
+		//num+data
+		var pkg2 = new(bytes.Buffer)
+		err = binary.Write(pkg2, binary.LittleEndian, int64(l-i-1))
+		if err != nil {
+			panic(err)
+		}
+		err = binary.Write(pkg2, binary.LittleEndian, b1)
+		if err != nil {
+			panic(err)
+		}
+		b2 := pkg2.Bytes()
+		h := toolHash(b2)
+		h2, err := Encrypt(h, k.keyB)
+		if err != nil || len(h2) != 60 {
+			panic(err)
+		}
+		//hash
+		err = binary.Write(pkg, binary.LittleEndian, h2)
+		if err != nil {
+			panic(err)
+		}
+		//num + data
+		err = binary.Write(pkg, binary.LittleEndian, b2)
+		if err != nil {
+			panic(err)
+		}
+		bo = append(bo, pkg.Bytes())
+	}
+	return bo
+}
+func checkHash(h []byte, data []byte) bool {
+	h2 := toolHash(data)
+	if len(h) != len(h2) {
+		return false
+	}
+	for i := range h2 {
+		if h[i] != h2[i] {
+			return false
+		}
+	}
+	return true
 }

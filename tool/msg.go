@@ -6,10 +6,16 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"log"
+	"strconv"
 	"time"
 )
 
 var debug = false
+
+// bytes size = 4096
+// data len 4004=4096-8-60-8-16
+const BufferSize = 4096
 
 type ConnMsg struct {
 	Header string
@@ -31,7 +37,7 @@ func NewKey(key string) Key {
 		keyB: []byte(key),
 	}
 }
-func (k *Key) Encode(i interface{}) (b []byte) {
+func (k *Key) Encode(i interface{}) (b [][]byte) {
 	var bk []byte
 	if !debug {
 		bs, err := Encrypt(MustMarshal(i), k.keyB)
@@ -42,23 +48,24 @@ func (k *Key) Encode(i interface{}) (b []byte) {
 	} else {
 		bk = MustMarshal(i)
 	}
-	lens := int64(len(bk))
-	var pkg = new(bytes.Buffer)
-	err := binary.Write(pkg, binary.LittleEndian, lens)
-	if err != nil {
-		panic(err)
+	var bs [][]byte
+	size := BufferSize - 8 - 60 - 8 - 16
+	lens := len(bk)
+	for j := 0; j < lens; j += size {
+		next := j + size
+		if lens <= next {
+			next = lens
+		}
+		bs = append(bs, bk[j:next])
 	}
-	err = binary.Write(pkg, binary.LittleEndian, bk)
-	if err != nil {
-		panic(err)
-	}
-	b = pkg.Bytes()
-	return
+	return k.assemblyBytes(bs)
 }
+
 func (k *Key) Decode(i interface{}, data []byte) error {
 	if len(data) == 0 {
 		return errors.New("nil")
 	}
+
 	var b []byte
 	if !debug {
 		bs, err := Decrypt(data, k.keyB)
@@ -72,16 +79,32 @@ func (k *Key) Decode(i interface{}, data []byte) error {
 	return json.Unmarshal(b, &i)
 }
 
-//	func (k *Key) GetMsg(b []byte) ConnMsg {
-//		var msg ConnMsg
-//		k.Decode(&msg, b)
-//		return msg
-//	}
 func (k *Key) GetMsg(reader *bufio.Reader) (c ConnMsg, err error) {
 	var msg ConnMsg
-	b, err := k.GetMsgV2(reader)
-	if err != nil {
-		return
+	var b []byte
+	for {
+		b0, err1 := k.GetMsgV2(reader)
+		if err1 != nil {
+			if err1.Error() == "wait pack" {
+				b = append(b, b0...)
+				i, err2 := reader.Discard(16 + 8 + 60 + 8 + len(b0))
+				if err2 != nil {
+					log.Println(i, err2)
+					return msg, err2
+				}
+				continue
+			} else {
+				err = err1
+				return
+			}
+		}
+		b = append(b, b0...)
+		i, err2 := reader.Discard(16 + 8 + 60 + 8 + len(b0))
+		if err2 != nil {
+			log.Println(i, err2)
+			return msg, err2
+		}
+		break
 	}
 	err = k.Decode(&msg, b)
 	if err != nil {
@@ -92,38 +115,60 @@ func (k *Key) GetMsg(reader *bufio.Reader) (c ConnMsg, err error) {
 }
 
 func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
-	lenb, err := reader.Peek(8)
+	ver, err := reader.Peek(16)
 	if err != nil {
-
 		return nil, err
 	}
-	lengBuff := bytes.NewBuffer(lenb)
+	if string(ver) != version {
+		return nil, errors.New("the protocol is not go-CFC : is not " + version)
+	}
+	lenb, err := reader.Peek(8 + 16)
+	if err != nil {
+		return nil, err
+	}
+	lengBuff := bytes.NewBuffer(lenb[16:24])
 	var lens int64
 	err = binary.Read(lengBuff, binary.LittleEndian, &lens)
 	if err != nil {
 		return
 	}
-	if lens <= 0 {
-		err = errors.New("lens:" + "A negative number")
+	if lens <= 8+60+8 {
+		err = errors.New("lens:" + "too small to " + strconv.Itoa(0+60+8) + " bytes")
 		return
 	}
-	if lens >= 2097152 { //~2MB
-		err = errors.New("lens:" + "too long to 2MB")
+	if lens > BufferSize {
+		err = errors.New("lens:" + "too long to " + strconv.Itoa(BufferSize) + " bytes")
 		return
 	}
-	if int64(reader.Buffered()) < lens+8 {
-		err = errors.New("lens:" + "bad")
-		return
-	}
-	pack := make([]byte, int(8+lens))
-	_, err = reader.Read(pack)
+	//if int64(reader.Buffered()) != lens {
+	//	fmt.Println("kkkk ", reader.Buffered(), lens)
+	//	err = errors.New("lens:" + "bad")
+	//	return
+	//}
+	pack, err := reader.Peek(int(lens))
 	if err != nil {
 		return
 	}
-	return pack[8:], nil
+	h, err := Decrypt(pack[16+8:16+8+60], k.keyB)
+	if err != nil {
+		return
+	}
+	if !checkHash(h, pack[16+8+60:]) {
+		return nil, errors.New("hash check failed")
+	}
+	lengBuff2 := bytes.NewBuffer(pack[16+8+60 : 16+8+60+8])
+	var num int64
+	err = binary.Read(lengBuff2, binary.LittleEndian, &num)
+	if err != nil {
+		return
+	}
+	if num != 0 {
+		return pack[16+8+60+8:], errors.New("wait pack")
+	}
+	return pack[16+8+60+8:], nil
 }
 
-func (k *Key) SetMsg(header, id string, code int, data interface{}) []byte {
+func (k *Key) SetMsg(header, id string, code int, data interface{}) [][]byte {
 	return k.Encode(ConnMsg{
 		Header: header,
 		Code:   code,

@@ -27,13 +27,12 @@ type ClientInfo struct {
 	name string
 
 	fastConn    atomic.Bool
-	fastOdjChan chan []byte
-	//fastConn bool
-	step *int64
-	stop chan uint8
+	fastOdjChan chan [][]byte
+	step        *int64
+	stop        chan uint8
 
 	conn      net.Conn
-	writeChan chan []byte
+	writeChan chan [][]byte
 	ping      tool.Ping
 
 	parent string
@@ -93,7 +92,7 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 		step:      &i,
 		stop:      make(chan uint8, 10),
 		conn:      conn,
-		writeChan: make(chan []byte, 100),
+		writeChan: make(chan [][]byte, 100),
 		ping:      tool.Ping{},
 		parent:    "",
 		subMap:    sync.Map{},
@@ -105,10 +104,12 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 		for true {
 			select {
 			case b := <-c.writeChan:
-				_, err := conn.Write(b)
-				if err != nil {
-					tool.Println(conn, err)
-					return
+				for _, one := range b {
+					_, err := conn.Write(one)
+					if err != nil {
+						tool.Println(conn, err)
+						return
+					}
 				}
 			case <-c.stop:
 				c.conn.Close()
@@ -116,16 +117,10 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 			}
 		}
 	}()
-	reader := bufio.NewReader(conn)
+	reader := bufio.NewReaderSize(conn, tool.BufferSize)
 	for true {
 		cMsg, err := s.key.GetMsg(reader)
 		if err != nil {
-			//if err.Error() == "lens:bad" {
-			//	break
-			//}
-			//tool.Println(conn, err)
-			//c.close()
-			//return
 			tool.Println(conn, err)
 			break
 		}
@@ -264,11 +259,11 @@ func (s *ServerContext) cMsgHandler(c *ClientInfo, msg tool.ConnMsg) {
 		}
 	}
 }
-func (c *ClientInfo) writerData(b []byte) {
+func (c *ClientInfo) writerData(b [][]byte) {
 	c.writeChan <- b
 }
 func (c *ClientInfo) writerFast(b []byte) {
-	c.fastOdjChan <- b
+	c.fastOdjChan <- [][]byte{b}
 }
 func (c *ClientInfo) close() {
 	c.subMap.Range(func(key, value any) bool {
