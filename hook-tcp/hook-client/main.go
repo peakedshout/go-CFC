@@ -25,7 +25,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			c.ListenSubConn(func(sub *client.SubConnContext) {
+			err = c.ListenSubConn(func(sub *client.SubConnContext) {
 				defer sub.Close()
 				conn, err := net.Dial("tcp", info.IP+info.Port)
 				if err != nil {
@@ -46,6 +46,9 @@ func main() {
 					return
 				}
 			})
+			if err != nil {
+				log.Println(err)
+			}
 		}()
 	}
 	if len(config.Tcp.Client) != 0 {
