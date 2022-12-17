@@ -7,6 +7,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -136,7 +137,7 @@ func (k *Key) assemblyBytes(bs [][]byte) [][]byte {
 	var bo [][]byte
 	l := len(bs)
 	for i, b1 := range bs {
-		lens := int64(len(b1) + 8 + 60 + 8 + 16) //ver len hash num... data
+		lens := int64(len(b1) + getHeaderSize()) //ver len hash num... data
 		var pkg = new(bytes.Buffer)
 		//version
 		err := binary.Write(pkg, binary.LittleEndian, []byte(version))
@@ -162,7 +163,7 @@ func (k *Key) assemblyBytes(bs [][]byte) [][]byte {
 		b2 := pkg2.Bytes()
 		h := toolHash(b2)
 		h2, err := Encrypt(h, k.keyB)
-		if err != nil || len(h2) != 60 {
+		if err != nil || len(h2) != hashSize {
 			panic(err)
 		}
 		//hash
@@ -190,4 +191,21 @@ func checkHash(h []byte, data []byte) bool {
 		}
 	}
 	return true
+}
+
+const mashBytesTag = "go-CFC-Data"
+
+type MashBytes struct {
+	Data string `json:"go-CFC-Data"`
+}
+
+func MustBytesToBase64(b []byte) MashBytes {
+	return MashBytes{Data: base64.StdEncoding.EncodeToString(b)}
+}
+func MustBase64ToBytes(str string) []byte {
+	b, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

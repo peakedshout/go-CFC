@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -16,6 +16,11 @@ var debug = false
 // bytes size = 4096
 // data len 4004=4096-8-60-8-16
 const BufferSize = 4096
+
+const versionSize = 16
+const lenSize = 8
+const hashSize = 60
+const numSize = 8
 
 type ConnMsg struct {
 	Header string
@@ -29,6 +34,10 @@ type Key struct {
 }
 type Ping struct {
 	Ping time.Duration
+}
+
+func getHeaderSize() int {
+	return versionSize + lenSize + hashSize + numSize
 }
 
 func NewKey(key string) Key {
@@ -49,7 +58,8 @@ func (k *Key) Encode(i interface{}) (b [][]byte) {
 		bk = MustMarshal(i)
 	}
 	var bs [][]byte
-	size := BufferSize - 8 - 60 - 8 - 16
+	size := BufferSize - getHeaderSize()
+	//size := BufferSize - versionSize - lenSize - hashSize - numSize
 	lens := len(bk)
 	for j := 0; j < lens; j += size {
 		next := j + size
@@ -85,9 +95,10 @@ func (k *Key) GetMsg(reader *bufio.Reader) (c ConnMsg, err error) {
 	for {
 		b0, err1 := k.GetMsgV2(reader)
 		if err1 != nil {
-			if err1.Error() == "wait pack" {
+			if err1 == errWaitPack {
+				//if err1.Error() == "wait pack" {
 				b = append(b, b0...)
-				i, err2 := reader.Discard(16 + 8 + 60 + 8 + len(b0))
+				i, err2 := reader.Discard(getHeaderSize() + len(b0))
 				if err2 != nil {
 					log.Println(i, err2)
 					return msg, err2
@@ -99,7 +110,7 @@ func (k *Key) GetMsg(reader *bufio.Reader) (c ConnMsg, err error) {
 			}
 		}
 		b = append(b, b0...)
-		i, err2 := reader.Discard(16 + 8 + 60 + 8 + len(b0))
+		i, err2 := reader.Discard(getHeaderSize() + len(b0))
 		if err2 != nil {
 			log.Println(i, err2)
 			return msg, err2
@@ -110,34 +121,38 @@ func (k *Key) GetMsg(reader *bufio.Reader) (c ConnMsg, err error) {
 	if err != nil {
 		return
 	}
+	m, ok := msg.Data.(map[string]any)
+	if ok && m[mashBytesTag] != nil {
+		msg.Data = MustBase64ToBytes(m[mashBytesTag].(string))
+	}
 	c = msg
 	return
 }
 
 func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
-	ver, err := reader.Peek(16)
+	ver, err := reader.Peek(versionSize)
 	if err != nil {
 		return nil, err
 	}
 	if string(ver) != version {
 		return nil, errors.New("the protocol is not go-CFC : is not " + version)
 	}
-	lenb, err := reader.Peek(8 + 16)
+	lenb, err := reader.Peek(versionSize + lenSize)
 	if err != nil {
 		return nil, err
 	}
-	lengBuff := bytes.NewBuffer(lenb[16:24])
+	lengBuff := bytes.NewBuffer(lenb[versionSize : versionSize+lenSize])
 	var lens int64
 	err = binary.Read(lengBuff, binary.LittleEndian, &lens)
 	if err != nil {
 		return
 	}
-	if lens <= 8+60+8 {
-		err = errors.New("lens:" + "too small to " + strconv.Itoa(0+60+8) + " bytes")
+	if lens <= int64(getHeaderSize()) {
+		err = fmt.Errorf("lens: too small to %v  bytes", getHeaderSize())
 		return
 	}
 	if lens > BufferSize {
-		err = errors.New("lens:" + "too long to " + strconv.Itoa(BufferSize) + " bytes")
+		err = fmt.Errorf("lens: too long to %v bytes", BufferSize)
 		return
 	}
 	//if int64(reader.Buffered()) != lens {
@@ -149,11 +164,11 @@ func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
 	if err != nil {
 		return
 	}
-	h, err := Decrypt(pack[16+8:16+8+60], k.keyB)
+	h, err := Decrypt(pack[versionSize+lenSize:versionSize+lenSize+hashSize], k.keyB)
 	if err != nil {
 		return
 	}
-	if !checkHash(h, pack[16+8+60:]) {
+	if !checkHash(h, pack[versionSize+lenSize+hashSize:]) {
 		return nil, errors.New("hash check failed")
 	}
 	lengBuff2 := bytes.NewBuffer(pack[16+8+60 : 16+8+60+8])
@@ -163,12 +178,16 @@ func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
 		return
 	}
 	if num != 0 {
-		return pack[16+8+60+8:], errors.New("wait pack")
+		return pack[getHeaderSize():], errWaitPack
 	}
-	return pack[16+8+60+8:], nil
+	return pack[getHeaderSize():], nil
 }
 
 func (k *Key) SetMsg(header, id string, code int, data interface{}) [][]byte {
+	b, ok := data.([]byte)
+	if ok {
+		data = MustBytesToBase64(b)
+	}
 	return k.Encode(ConnMsg{
 		Header: header,
 		Code:   code,

@@ -1,5 +1,7 @@
 package tool
 
+import "errors"
+
 const version = `go-CFC-v01.02.00`
 
 const HandshakeCheckStepQ1 = "Hello! I want to shake hands."
@@ -18,3 +20,5 @@ const SOpenA = "sOpenA"
 
 const DelayQ = "DelayQ"
 const DelayA = "DelayA"
+
+var errWaitPack = errors.New("wait pack")
