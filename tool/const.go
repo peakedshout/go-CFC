@@ -1,6 +1,6 @@
 package tool
 
-const version = `go-CFC-v01.01.01`
+const version = `go-CFC-v01.02.00`
 
 const HandshakeCheckStepQ1 = "Hello! I want to shake hands."
 const HandshakeCheckStepA1 = "Hi! What's your Info?"
