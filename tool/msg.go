@@ -46,6 +46,11 @@ func NewKey(key string) Key {
 		keyB: []byte(key),
 	}
 }
+
+func (k *Key) GetRawKey() string {
+	return k.key
+}
+
 func (k *Key) Encode(i interface{}) (b [][]byte) {
 	var bk []byte
 	if !debug {

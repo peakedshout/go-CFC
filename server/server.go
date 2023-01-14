@@ -53,11 +53,13 @@ func NewServer(ip, port, key string) {
 	}
 	go func() {
 		t := time.NewTicker(1 * time.Minute)
+		defer t.Stop()
 		select {
 		case <-t.C:
 			s.taskRoomDelMap.Range(func(key, value any) bool {
 				if time.Now().Sub(key.(time.Time)) > 0 {
 					s.taskRoomMap.Delete(value)
+					s.taskRoomDelMap.Delete(key)
 				}
 				return true
 			})
@@ -322,7 +324,7 @@ func (s *ServerContext) JoinTaskRoom(id string, c *ClientInfo) {
 		taskR.c2.fastOdjChan = taskR.c1.writeChan
 		taskR.c1.fastConn.Store(true)
 		taskR.c2.fastConn.Store(true)
-		taskR.c1.writerData(s.key.SetMsg(tool.TaskA, "", 200, nil))
-		taskR.c2.writerData(s.key.SetMsg(tool.TaskA, "", 200, nil))
+		taskR.c1.writerData(s.key.SetMsg(tool.TaskA, taskR.c2.parent, 200, nil))
+		taskR.c2.writerData(s.key.SetMsg(tool.TaskA, taskR.c1.parent, 200, nil))
 	}
 }

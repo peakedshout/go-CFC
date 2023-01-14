@@ -72,6 +72,7 @@ func LinkLongConn(name, ip, port, key string) (*ClientContext, error) {
 		var t0 time.Time
 		go func() {
 			t := time.NewTicker(5 * time.Second)
+			defer t.Stop()
 			for {
 				select {
 				case b := <-c.writeChan:
@@ -152,10 +153,12 @@ func (c *ClientContext) cMsgHandler(msg tool.ConnMsg, tp time.Time) {
 				return
 			}
 			s := &SubConnContext{
-				id:   tool.NewId(1),
-				conn: conn,
-				f:    c,
-				key:  c.key,
+				id:         tool.NewId(1),
+				localName:  c.name,
+				remoteName: cMsg.Id,
+				conn:       conn,
+				f:          c,
+				key:        c.key,
 			}
 			c.subMap.Store(s.id, s)
 			//time.Sleep(500 * time.Millisecond)
@@ -196,6 +199,7 @@ func (c *ClientContext) Close() {
 func (c *ClientContext) GetSubConn(name string) (*SubConnContext, error) {
 	tid := tool.NewId(1)
 	tk := time.NewTicker(100 * time.Second)
+	defer tk.Stop()
 
 	run := make(chan string)
 	stop := make(chan error)
@@ -244,14 +248,20 @@ func (c *ClientContext) GetSubConn(name string) (*SubConnContext, error) {
 			conn.Close()
 			return nil, errors.New("task is bad")
 		}
+		if name != cMsg.Id {
+			conn.Close()
+			return nil, errors.New("odj is bad")
+		}
 		s := &SubConnContext{
-			id:   tool.NewId(1),
-			conn: conn,
-			f:    c,
-			key:  c.key,
+			id:         tool.NewId(1),
+			localName:  c.name,
+			remoteName: cMsg.Id,
+			conn:       conn,
+			f:          c,
+			key:        c.key,
 		}
 		c.subMap.Store(s.id, s)
-		time.Sleep(500 * time.Millisecond)
+		//time.Sleep(500 * time.Millisecond)
 		return s, nil
 	}
 	//return nil, errors.New("err")
@@ -302,19 +312,29 @@ func (c *ClientContext) listenSubConn(fn func(sub *SubConnContext), rw uint8) er
 			}
 			go fn(scc)
 		case <-c.subListenStop:
-			return errors.New("the main connection is disconnected")
+			return errors.New("the cfc-hook-server connection is disconnected")
 		}
 	}
 }
 
 type SubConnContext struct {
 	id         string
+	localName  string
+	remoteName string
 	conn       net.Conn
 	f          *ClientContext
 	writerChan chan []byte
 	writerStop chan uint8
 	reader     *bufio.Reader
 	key        tool.Key
+}
+
+func (s *SubConnContext) GetLocalName() string {
+	return s.localName
+}
+
+func (s *SubConnContext) GetRemoteName() string {
+	return s.remoteName
 }
 
 func (s *SubConnContext) GetConn() net.Conn {
@@ -362,6 +382,7 @@ func (s *SubConnContext) NewKey(key string) tool.Key {
 func (c *ClientContext) sendAndCallBack(timeout time.Duration, send tool.ConnMsg, fn func(cMsg tool.ConnMsg)) (timeOut <-chan time.Time) {
 	tid := tool.NewId(1)
 	tk := time.NewTicker(timeout * time.Second)
+	defer tk.Stop()
 	//run := make(chan any)
 	//stop := make(chan error)
 	c.taskMap.Store(tid, func(cMsg tool.ConnMsg) {
@@ -379,7 +400,7 @@ func (c *ClientContext) GetOtherDelayPing(name ...string) ([]tool.OdjPing, error
 	tk := c.sendAndCallBack(10, tool.ConnMsg{
 		Header: tool.DelayQ,
 		Code:   200,
-		Data:   name,
+		Data:   tool.OdjIdList{IdList: name},
 	}, func(cMsg tool.ConnMsg) {
 		if cMsg.Code != 200 {
 			var info tool.OdjMsg
