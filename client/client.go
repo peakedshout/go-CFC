@@ -27,6 +27,8 @@ type ClientContext struct {
 	subMap        sync.Map
 	subListen     chan *SubConnContext
 	subListenStop chan uint8
+
+	closerOnce sync.Once
 }
 
 func newClient(name, ip, port, key string) *ClientContext {
@@ -41,8 +43,8 @@ func newClient(name, ip, port, key string) *ClientContext {
 		ip:        ip,
 		port:      port,
 		conn:      nil,
-		writeChan: make(chan [][]byte, 100),
-		stop:      make(chan uint8, 10),
+		writeChan: make(chan [][]byte, 1),
+		stop:      make(chan uint8, 1),
 		ping:      tool.Ping{},
 		key:       tool.NewKey(key),
 		taskMap:   sync.Map{},
@@ -84,14 +86,13 @@ func LinkLongConn(name, ip, port, key string) (*ClientContext, error) {
 						}
 					}
 				case <-c.stop:
-					c.conn.Close()
 					c.subMap.Range(func(key, value any) bool {
 						value.(*SubConnContext).Close()
 						return true
 					})
 				case <-t.C:
 					t0 = time.Now()
-					c.writeChan <- c.key.SetMsg(tool.PingMsg, "", 200, c.ping)
+					c.write(c.key.SetMsg(tool.PingMsg, "", 200, c.ping))
 				}
 			}
 		}()
@@ -159,6 +160,10 @@ func (c *ClientContext) cMsgHandler(msg tool.ConnMsg, tp time.Time) {
 				conn:       conn,
 				f:          c,
 				key:        c.key,
+				speed: &tool.NetworkSpeedTicker{
+					Upload:   &tool.SpeedTicker{},
+					Download: &tool.SpeedTicker{},
+				},
 			}
 			c.subMap.Store(s.id, s)
 			//time.Sleep(500 * time.Millisecond)
@@ -190,9 +195,20 @@ func (c *ClientContext) sendAndWait(b [][]byte, header string, code int) (cMsg t
 	return
 }
 func (c *ClientContext) Close() {
-	c.stop <- 1
-	if c.subListenStop != nil {
-		c.subListenStop <- 1
+	c.closerOnce.Do(func() {
+		c.conn.Close()
+		c.stop <- 1
+		if c.subListenStop != nil {
+			c.subListenStop <- 1
+		}
+	})
+}
+
+func (c *ClientContext) write(b [][]byte) {
+	select {
+	case c.writeChan <- b:
+	case <-c.stop:
+		c.stop <- 1
 	}
 }
 
@@ -217,7 +233,7 @@ func (c *ClientContext) GetSubConn(name string) (*SubConnContext, error) {
 		}
 		run <- info.Msg
 	})
-	c.writeChan <- c.key.SetMsg(tool.SOpenQ, tid, 200, tool.OdjMsg{Msg: name})
+	c.write(c.key.SetMsg(tool.SOpenQ, tid, 200, tool.OdjMsg{Msg: name}))
 	select {
 	case <-tk.C:
 		return nil, errors.New("timeout")
@@ -259,6 +275,10 @@ func (c *ClientContext) GetSubConn(name string) (*SubConnContext, error) {
 			conn:       conn,
 			f:          c,
 			key:        c.key,
+			speed: &tool.NetworkSpeedTicker{
+				Upload:   &tool.SpeedTicker{},
+				Download: &tool.SpeedTicker{},
+			},
 		}
 		c.subMap.Store(s.id, s)
 		//time.Sleep(500 * time.Millisecond)
@@ -290,18 +310,20 @@ func (c *ClientContext) listenSubConn(fn func(sub *SubConnContext), rw uint8) er
 		select {
 		case scc := <-c.subListen:
 			if rw == 1 || rw == 2 {
-				scc.writerChan = make(chan []byte, 100)
-				scc.writerStop = make(chan uint8, 10)
+				scc.writerChan = make(chan []byte, 1)
+				scc.writerStop = make(chan uint8, 1)
 				go func() {
 					for {
 						select {
 						case b := <-scc.writerChan:
-							_, err := scc.conn.Write(b)
+							i, err := scc.conn.Write(b)
 							if err != nil {
 								tool.Println(scc.conn, err)
 								return
 							}
+							scc.speed.Upload.Set(i)
 						case <-scc.writerStop:
+							scc.writerStop <- 1
 							return
 						}
 					}
@@ -327,6 +349,9 @@ type SubConnContext struct {
 	writerStop chan uint8
 	reader     *bufio.Reader
 	key        tool.Key
+	speed      *tool.NetworkSpeedTicker
+
+	closerOnce sync.Once
 }
 
 func (s *SubConnContext) GetLocalName() string {
@@ -342,24 +367,48 @@ func (s *SubConnContext) GetConn() net.Conn {
 }
 
 func (s *SubConnContext) Close() {
-	s.conn.Close()
-	s.f.subMap.Delete(s.id)
-	if s.writerStop != nil {
-		s.writerStop <- 1
+	s.closerOnce.Do(func() {
+		s.conn.Close()
+		s.f.subMap.Delete(s.id)
+		if s.writerStop != nil {
+			s.writerStop <- 1
+		}
+	})
+}
+
+func (s *SubConnContext) SetSpeed(u, d int, refresh bool) {
+	if refresh || u != 0 {
+		s.speed.Upload.Set(u)
 	}
+	if refresh || d != 0 {
+		s.speed.Download.Set(d)
+	}
+}
+
+func (s *SubConnContext) GetSpeed() (up, down int) {
+	return s.speed.Upload.Get(), s.speed.Download.Get()
+}
+func (s *SubConnContext) GetSpeedView() tool.NetworkSpeedView {
+	return s.speed.ToView()
 }
 
 // Write,
 // This is the case where conn writes to the data race, it will be written in FIFO order. If you are using ListenSubConn/GetSubConn, please do not use this method. It does not support (and does not create objects)
-func (s *SubConnContext) Write(b []byte) {
-	s.writerChan <- b
+func (s *SubConnContext) Write(b []byte) bool {
+	select {
+	case s.writerChan <- b:
+		return true
+	case <-s.writerStop:
+		s.writerStop <- 1
+		return false
+	}
 }
 
 // Read,
 // This is according to the CFC custom protocol to read content, if you want to use this protocol communication, then you write content should also follow the protocol, the callback return false will stop reading, If you don't have ListenSubConnReadWriter/NewSubConnReader please don't use it (because did not create objects)
 func (s *SubConnContext) Read(fn func(cMsg tool.ConnMsg) bool) error {
 	for {
-		cMsg, err := s.key.GetMsg(s.reader)
+		cMsg, err := s.key.GetMsgV3(s.reader, s.speed.Download)
 		if err != nil {
 			return err
 		}
@@ -390,7 +439,7 @@ func (c *ClientContext) sendAndCallBack(timeout time.Duration, send tool.ConnMsg
 		fn(cMsg)
 	})
 	send.Id = tid
-	c.writeChan <- c.key.Encode(send)
+	c.write(c.key.Encode(send))
 	return tk.C
 }
 

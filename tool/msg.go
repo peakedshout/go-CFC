@@ -188,6 +188,48 @@ func (k *Key) GetMsgV2(reader *bufio.Reader) (b []byte, err error) {
 	return pack[getHeaderSize():], nil
 }
 
+func (k *Key) GetMsgV3(reader *bufio.Reader, speed *SpeedTicker) (c ConnMsg, err error) {
+	var msg ConnMsg
+	var b []byte
+	for {
+		b0, err1 := k.GetMsgV2(reader)
+		if err1 != nil {
+			if err1 == errWaitPack {
+				//if err1.Error() == "wait pack" {
+				b = append(b, b0...)
+				i, err2 := reader.Discard(getHeaderSize() + len(b0))
+				if err2 != nil {
+					log.Println(i, err2)
+					return msg, err2
+				}
+				speed.Set(i)
+				continue
+			} else {
+				err = err1
+				return
+			}
+		}
+		b = append(b, b0...)
+		i, err2 := reader.Discard(getHeaderSize() + len(b0))
+		if err2 != nil {
+			log.Println(i, err2)
+			return msg, err2
+		}
+		speed.Set(i)
+		break
+	}
+	err = k.Decode(&msg, b)
+	if err != nil {
+		return
+	}
+	m, ok := msg.Data.(map[string]any)
+	if ok && m[mashBytesTag] != nil {
+		msg.Data = MustBase64ToBytes(m[mashBytesTag].(string))
+	}
+	c = msg
+	return
+}
+
 func (k *Key) SetMsg(header, id string, code int, data interface{}) [][]byte {
 	b, ok := data.([]byte)
 	if ok {

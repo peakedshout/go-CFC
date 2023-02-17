@@ -14,8 +14,9 @@ type ServerContext struct {
 	ip   string
 	port string
 
-	key       tool.Key
-	clientMap sync.Map //k name v *Client
+	key        tool.Key
+	clientMap  sync.Map //k name v *Client
+	clientLock sync.Mutex
 
 	taskRoomMap    sync.Map //k id v *taskRoom
 	taskRoomDelMap sync.Map //k time v task id
@@ -26,10 +27,12 @@ type ClientInfo struct {
 	id   string
 	name string
 
+	fastOdj     *ClientInfo
 	fastConn    atomic.Bool
 	fastOdjChan chan [][]byte
 	step        *int64
 	stop        chan uint8
+	closerOnce  sync.Once
 
 	conn      net.Conn
 	writeChan chan [][]byte
@@ -63,8 +66,6 @@ func NewServer(ip, port, key string) {
 				}
 				return true
 			})
-			//case svc.Stop:
-
 		}
 	}()
 
@@ -92,9 +93,9 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 		fastConn: atomic.Bool{},
 		//fastOdjChan: make(chan []byte, 100),
 		step:      &i,
-		stop:      make(chan uint8, 10),
+		stop:      make(chan uint8, 1),
 		conn:      conn,
-		writeChan: make(chan [][]byte, 100),
+		writeChan: make(chan [][]byte, 1),
 		ping:      tool.Ping{},
 		parent:    "",
 		subMap:    sync.Map{},
@@ -114,7 +115,7 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 					}
 				}
 			case <-c.stop:
-				c.conn.Close()
+				c.stop <- 1
 				return
 			}
 		}
@@ -133,11 +134,14 @@ func (s *ServerContext) tcpHandler(conn net.Conn) {
 	}
 	for {
 		if c.fastConn.Load() {
-			var b [1024]byte
+			var b [4 * 1024]byte
 			n, err := reader.Read(b[:])
 			if err != nil {
 				tool.Println(conn, err)
 				c.close()
+				if c.fastOdj != nil {
+					c.fastOdj.close()
+				}
 				return
 			}
 			c.writerFast(b[:n])
@@ -190,7 +194,12 @@ func (s *ServerContext) cMsgHandler(c *ClientInfo, msg tool.ConnMsg) {
 				return
 			}
 			c.name = info.Name
+			s.clientLock.Lock()
+			if c1, ok := s.clientMap.Load(c.name); ok {
+				c1.(*ClientInfo).close()
+			}
 			s.clientMap.Store(c.name, c)
+			s.clientLock.Unlock()
 			c.writerData(s.key.SetMsg(tool.HandshakeCheckStepA2, "", 200, nil))
 			tool.Println(c.conn, msg)
 		}
@@ -262,21 +271,32 @@ func (s *ServerContext) cMsgHandler(c *ClientInfo, msg tool.ConnMsg) {
 	}
 }
 func (c *ClientInfo) writerData(b [][]byte) {
-	c.writeChan <- b
+	select {
+	case c.writeChan <- b:
+	case <-c.stop:
+		c.stop <- 1
+	}
 }
 func (c *ClientInfo) writerFast(b []byte) {
-	c.fastOdjChan <- [][]byte{b}
+	select {
+	case c.fastOdjChan <- [][]byte{b}:
+	case <-c.stop:
+		c.stop <- 1
+	}
 }
 func (c *ClientInfo) close() {
-	c.subMap.Range(func(key, value any) bool {
-		value.(*ClientInfo).close()
-		c.subMap.Delete(key)
-		return true
+	c.closerOnce.Do(func() {
+		c.conn.Close()
+		c.stop <- 1
+		c.subMap.Range(func(key, value any) bool {
+			value.(*ClientInfo).close()
+			c.subMap.Delete(key)
+			return true
+		})
+		if c.name != "" {
+			c.s.clientMap.Delete(c.name)
+		}
 	})
-	if c.name != "" {
-		c.s.clientMap.Delete(c.name)
-	}
-	c.stop <- 1
 }
 func (c *ClientInfo) closeSub() {
 
@@ -324,6 +344,8 @@ func (s *ServerContext) JoinTaskRoom(id string, c *ClientInfo) {
 		taskR.c2.fastOdjChan = taskR.c1.writeChan
 		taskR.c1.fastConn.Store(true)
 		taskR.c2.fastConn.Store(true)
+		taskR.c1.fastOdj = taskR.c2
+		taskR.c2.fastOdj = taskR.c1
 		taskR.c1.writerData(s.key.SetMsg(tool.TaskA, taskR.c2.parent, 200, nil))
 		taskR.c2.writerData(s.key.SetMsg(tool.TaskA, taskR.c1.parent, 200, nil))
 	}
