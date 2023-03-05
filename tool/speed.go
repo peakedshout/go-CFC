@@ -24,6 +24,13 @@ func CountAllNetworkSpeedView(list ...NetworkSpeedView) NetworkSpeedView {
 	return resp
 }
 
+func NewNetworkSpeedTicker() NetworkSpeedTicker {
+	return NetworkSpeedTicker{
+		Upload:   &SpeedTicker{},
+		Download: &SpeedTicker{},
+	}
+}
+
 type NetworkSpeedTicker struct {
 	Upload   *SpeedTicker
 	Download *SpeedTicker
@@ -79,7 +86,9 @@ func (st *SpeedTicker) Get() int {
 	}
 	return st.read
 }
-func formatSpeed(fileSize int) (size string) {
+
+func formatSpeed(speed int) (size string) {
+	fileSize := int64(speed)
 	if fileSize < 1024 {
 		return fmt.Sprintf("%.2fB/s", float64(fileSize)/float64(1))
 	} else if fileSize < (1024 * 1024) {

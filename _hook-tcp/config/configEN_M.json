@@ -1,0 +1,46 @@
+{
+  "?ProxyServerHost": "This parameter is used to read the configuration of the proxy service host. If it is the proxy service host, you only need to enter this parameter. If it is a client device, just filling in the entry is meaningless.",
+  "ProxyServerHost": {
+    "?ProxyServerAddr": "The network address of the proxy service host. Make sure that this address is available. If it is the proxy service host, it will listen to this address. If it is a client device, the address will be linked.",
+    "ProxyServerAddr": "",
+    "?LinkProxyKey": "This is the symmetric key for communication between the proxy server host and the client device. Make sure that the value is the same on both ends. It must be 32-bit bytes, and keep it secret, as it is the key that ensures the encryption of the communication.",
+    "LinkProxyKey": ""
+  },
+  "?ProxyDeviceBox": "This parameter is used to register the client device configuration. The proxy server host does not need this parameter.",
+  "ProxyDeviceBox": {
+    "?ProxyTcp": "Proxy Both the proxy service and the proxy client of tcp, which can be registered by TCP-based communications, and it can be both the server and the client.",
+    "ProxyTcp": {
+      "?Server": "This is the client configuration parameter that actually connects directly to the entity service, but for the entire architecture, it is abstracted into the server side, which can be simply understood as a gateway for the entity service. Make sure that the entity service exists and that the server is able to establish a tcp connection with the target.",
+      "Server": [
+        {
+          "?ListenProxyName":"This is the name registered on the proxy server for retrieval by clients on the proxy server. Its name must be unique on the proxy server, otherwise the connection will be crowded.",
+          "ListenProxyName":"",
+          "?ServerDialAddr": "The network address of the entity service, which must be listening for tcp, can be local (127.0.0.1), or remote, either way, make sure you can connect to it.",
+          "ServerDialAddr": "",
+          "?ProxyCryptoKey": "The child symmetric key, which must be 32-bit bytes, is the symmetric key used to encrypt the communication between the client and the server. It ensures that other devices that are online with the proxy service host cannot connect at will. (Not supported yet)",
+          "ProxyCryptoKey": ""
+        }
+      ],
+      "?Client": "This is actually the local start of the tcp listening service, the user accesses the listening service, through the proxy will be connected to the entity service, but for the entire architecture, it is abstracted as a client, can be simply understood as another network address of the entity service, please make sure that the listening address is available.",
+      "Client": [
+        {
+          "?DialProxyName": "This is the server name that needs to be connected to register with the proxy server host, make sure that the name that is filled in exists on the proxy server host.",
+          "DialProxyName": "",
+          "?ClientListenAddr": "The ip address of the locally started tcp listening service should be 127.0.0.1 or empty, and the port should be available.",
+          "ClientListenAddr": "",
+          "?ProxyCryptoKey": "The child symmetric key, which must be 32-bit bytes, is the symmetric key used to encrypt the communication between the client and the server. It ensures that other devices that are online with the proxy service host cannot connect at will. (Not supported yet)",
+          "ProxyCryptoKey": ""
+        }
+      ]
+    }
+  },
+  "?Setting": "The whole procedure of setting parameters, you can not fill in.",
+  "Setting": {
+    "?ReLinkTime": "Wait for a period of time when the program service encounters an error and then reset the value of the program run time, provided that the first startup was successful. Example: 1s, 1h.",
+    "ReLinkTime": "",
+    "?LogLevel": "",
+    "LogLevel": 0,
+    "?LogStack": "",
+    "LogStack": false
+  }
+}

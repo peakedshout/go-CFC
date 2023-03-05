@@ -1,0 +1,29 @@
+{
+  "ProxyServerHost": {
+    "ProxyServerAddr": "",
+    "LinkProxyKey": ""
+  },
+  "ProxyDeviceBox": {
+    "ProxyTcp": {
+      "Server": [
+        {
+          "ListenProxyName":"",
+          "ServerDialAddr": "",
+          "ProxyCryptoKey": ""
+        }
+      ],
+      "Client": [
+        {
+          "DialProxyName": "",
+          "ClientListenAddr": "",
+          "ProxyCryptoKey": ""
+        }
+      ]
+    }
+  },
+  "Setting": {
+    "ReLinkTime": "",
+    "LogLevel": 0,
+    "LogStack": false
+  }
+}

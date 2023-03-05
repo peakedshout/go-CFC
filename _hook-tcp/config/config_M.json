@@ -1,0 +1,46 @@
+{
+  "?ProxyServerHost": "",
+  "ProxyServerHost": {
+    "?ProxyServerAddr": "",
+    "ProxyServerAddr": "",
+    "?LinkProxyKey": "",
+    "LinkProxyKey": ""
+  },
+  "?ProxyDeviceBox": "",
+  "ProxyDeviceBox": {
+    "?ProxyTcp": "",
+    "ProxyTcp": {
+      "?Server": "",
+      "Server": [
+        {
+          "?ListenProxyName":"",
+          "ListenProxyName":"",
+          "?ServerDialAddr": "",
+          "ServerDialAddr": "",
+          "?ProxyCryptoKey": "",
+          "ProxyCryptoKey": ""
+        }
+      ],
+      "?Client": "",
+      "Client": [
+        {
+          "?DialProxyName": "",
+          "DialProxyName": "",
+          "?ClientListenAddr": "",
+          "ClientListenAddr": "",
+          "?ProxyCryptoKey": "",
+          "ProxyCryptoKey": ""
+        }
+      ]
+    }
+  },
+  "?Setting": "",
+  "Setting": {
+    "?ReLinkTime": "",
+    "ReLinkTime": "",
+    "?LogLevel": "",
+    "LogLevel": 0,
+    "?LogStack": "",
+    "LogStack": false
+  }
+}
