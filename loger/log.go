@@ -87,7 +87,7 @@ func Sprint(a ...any) string {
 }
 
 func SprintConn(conn net.Conn, a ...any) string {
-	if conn == nil {
+	if conn == nil || conn.LocalAddr() == nil || conn.RemoteAddr() == nil {
 		return Sprint("[", "No network", "] :", Sprint(a...))
 	}
 	return Sprint("[", conn.LocalAddr().String(), "->", conn.RemoteAddr().String(), "] :", Sprint(a...))
