@@ -80,6 +80,7 @@ func (bc *boxContext) handleProxyTcpServer() {
 			box, err := client.LinkProxyServer(info.ListenProxyName, bc.proxyHost.ProxyServerAddr, bc.proxyHost.LinkProxyKey)
 			if err != nil {
 				loger.SetLogWarn(err)
+				return
 			}
 			err = box.ListenSubBox(func(sub *client.SubBox) {
 				defer sub.Close()

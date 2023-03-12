@@ -22,7 +22,7 @@ type SubBox struct {
 	parent       *SubBox
 	networkSpeed tool.NetworkSpeedTicker
 
-	writerChan chan []byte
+	writerLock sync.Mutex
 	stop       chan uint8
 
 	disable atomic.Bool
@@ -33,16 +33,14 @@ type SubBox struct {
 	closerOnce sync.Once
 }
 
-func (sub *SubBox) FastHandshake(tid string) error {
+func (sub *SubBox) fastHandshake(tid string) error {
 	sub.SetDeadlineDuration(10 * time.Second)
-	for _, one := range sub.root.key.SetMsg(tool.TaskQ, "", 200, tool.OdjSub{
+	err := sub.WriteCMsg(tool.TaskQ, "", 200, tool.OdjSub{
 		SrcName: sub.root.name,
 		DstKey:  tid,
-	}) {
-		_, err := sub.Write(one)
-		if err != nil {
-			return err
-		}
+	})
+	if err != nil {
+		return err
 	}
 	reader := bufio.NewReaderSize(sub, tool.BufferSize)
 	cMsg, err := sub.root.key.ReadCMsg(reader, nil, nil)
@@ -104,8 +102,6 @@ func (sub *SubBox) Close() error {
 		return tool.ErrConnIsNil
 	}
 	err := sub.conn.Close()
-	//var err error = nil
-	sub.SetWarnLog("d42343423423")
 	sub.closerOnce.Do(func() {
 		sub.stop <- 1
 		sub.subMapLock.Lock()
@@ -203,6 +199,10 @@ func (sub *SubBox) SetWarnLog(a ...any) {
 	loger.SetLogWarn("[ name:", sub.root.name, "sid:", sub.id, "]", loger.SprintConn(sub.conn, a...))
 }
 
+func (sub *SubBox) SetDebugLog(a ...any) {
+	loger.SetLogWarn("[ name:", sub.root.name, "sid:", sub.id, "]", loger.SprintConn(sub.conn, a...))
+}
+
 func (sub *SubBox) SetDeadlineDuration(timeout time.Duration) bool {
 	if sub.conn == nil {
 		return false
@@ -237,10 +237,43 @@ func (sub *SubBox) GetAllNetworkSpeedView() tool.NetworkSpeedView {
 	return tool.CountAllNetworkSpeedView(list...)
 }
 
-//func (sub *SubBox) writerCMsg(header, id string, code int, data interface{}) {
-//	select {
-//	case pc.writeChan <- pc.s.key.SetMsg(header, id, code, data):
-//	case <-pc.stop:
-//		pc.stop <- 1
-//	}
-//}
+func (sub *SubBox) ReadCMsgCb(fn func(cMsg tool.ConnMsg) (bool, error)) error {
+	reader := bufio.NewReaderSize(sub, tool.BufferSize)
+	for {
+		cMsg, err := sub.key.ReadCMsg(reader, nil, nil)
+		if err != nil {
+			return err
+		}
+		r, err := fn(cMsg)
+		if err != nil {
+			return err
+		}
+		if !r {
+			return nil
+		}
+	}
+}
+
+func (sub *SubBox) WriteCMsg(header string, id string, code int, data interface{}) error {
+	sub.writerLock.Lock()
+	defer sub.writerLock.Unlock()
+	for _, one := range sub.key.SetMsg(header, id, code, data) {
+		_, err := sub.Write(one)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sub *SubBox) WriteQueueBytes(b [][]byte) error {
+	sub.writerLock.Lock()
+	defer sub.writerLock.Unlock()
+	for _, one := range b {
+		_, err := sub.Write(one)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

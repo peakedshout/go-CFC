@@ -1,12 +1,24 @@
 package tool
 
-import "time"
+import (
+	"time"
+)
 
 type ConnMsg struct {
 	Header string
 	Code   int
 	Data   interface{}
 	Id     string
+}
+
+func (cMsg *ConnMsg) CheckConnMsgHeaderAndCode(header string, code int) error {
+	if cMsg.Header != header {
+		return ErrReqUnexpectedHeader
+	}
+	if cMsg.Code != code {
+		return ErrReqBadAny(cMsg.Code, cMsg.Data)
+	}
+	return nil
 }
 
 type Ping struct {

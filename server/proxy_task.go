@@ -15,7 +15,7 @@ type proxyTaskRoom struct {
 	c2 *ProxyClient
 }
 
-func (ps *ProxyServer) JoinTaskRoom(tid string, pc *ProxyClient) {
+func (ps *ProxyServer) joinTaskRoom(tid string, pc *ProxyClient) {
 	task, ok := ps.getTaskRoom(tid)
 	if !ok {
 		pc.SetInfoLog(tool.ErrHandleCMsgMissProxyTaskRoom)
@@ -40,7 +40,7 @@ func (ps *ProxyServer) JoinTaskRoom(tid string, pc *ProxyClient) {
 
 	}
 }
-func (ps *ProxyServer) NewTaskRoom() string {
+func (ps *ProxyServer) newTaskRoom() string {
 	t := &proxyTaskRoom{
 		id:         tool.NewId(1),
 		join:       make(chan uint8, 1),

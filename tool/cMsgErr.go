@@ -14,7 +14,8 @@ var ErrReadCProtocolIsNotGoCFC = errors.New("the protocol is not go-CFC : is not
 var ErrReadCMsgLensTooShort = fmt.Errorf("lens: too small to %v  bytes", getHeaderSize())
 var ErrReadCMsgLensTooLong = fmt.Errorf("lens: too long to %v bytes", BufferSize)
 var ErrReadCMsgHashCheckFailed = errors.New("hash check failed")
-var ErrReadCMsgWaitPack = errors.New("wait pack")
+
+//var ErrReadCMsgWaitPack = errors.New("wait pack")
 
 var ErrHandleCMsgMissProxyClient = errors.New("not Not found proxy client ")
 var ErrHandleCMsgMissProxyTaskRoom = errors.New("not Not found proxy task room ")

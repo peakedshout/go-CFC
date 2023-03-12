@@ -167,7 +167,7 @@ func (ps *ProxyServer) cMsgProxyInitialization(pc *ProxyClient, cMsg tool.ConnMs
 			parent.setProxySubClient(pc.id, pc)
 			pc.parent = parent
 		}
-		ps.JoinTaskRoom(info.DstKey, pc)
+		ps.joinTaskRoom(info.DstKey, pc)
 	}
 }
 func (ps *ProxyServer) cMsgProxyRegister(pc *ProxyClient, cMsg tool.ConnMsg) {
@@ -204,7 +204,7 @@ func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
 		}
 		pc.ping = info
 		pc.SetDeadline(60 * time.Second)
-		pc.writerCMsg(tool.PongMsg, "", 200, nil)
+		pc.writerCMsg(tool.PongMsg, cMsg.Id, 200, nil)
 	case tool.SOpenQ:
 		var info tool.OdjMsg
 		err := tool.UnmarshalV2(cMsg.Data, &info)
@@ -220,7 +220,7 @@ func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
 			pc.SetInfoLog(err, info.Msg)
 			return
 		}
-		tid := ps.NewTaskRoom()
+		tid := ps.newTaskRoom()
 		odj.writerCMsg(tool.SOpenA, "", 200, tool.OdjMsg{Msg: tid})
 		pc.writerCMsg(tool.SOpenA, cMsg.Id, 200, tool.OdjMsg{Msg: tid})
 	case tool.DelayQ:

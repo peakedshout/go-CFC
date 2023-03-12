@@ -24,12 +24,12 @@ func newBox(name, addr, key string) *DeviceBox {
 		name:          name,
 		addr:          tcpAddr,
 		conn:          nil,
-		writeChan:     make(chan [][]byte, 1),
+		writeLock:     sync.Mutex{},
 		stop:          make(chan uint8, 1),
 		ping:          tool.Ping{},
 		networkSpeed:  tool.NewNetworkSpeedTicker(),
 		key:           tool.NewKey(key),
-		taskFnMap:     sync.Map{},
+		taskCbCtx:     nil,
 		subMap:        sync.Map{},
 		subListen:     nil,
 		subListenStop: nil,
@@ -45,6 +45,7 @@ func LinkProxyServer(name, addr, key string) (*DeviceBox, error) {
 		return nil, err
 	}
 	box.conn = conn
+	box.taskCbCtx = tool.NewTaskContext(box, box.key)
 	box.listenCMsg()
 	box.asyncWaitSendAndPing()
 	err = box.handshakeCheck()
@@ -58,7 +59,7 @@ func LinkProxyServer(name, addr, key string) (*DeviceBox, error) {
 
 func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 	tid := ""
-	err := box.newTaskCb(tool.SOpenQ, 200, tool.OdjMsg{Msg: name}).waitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+	err := box.taskCbCtx.NewTaskCbCMsg(tool.SOpenQ, 200, tool.OdjMsg{Msg: name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
 		if cMsg.Header != tool.SOpenA {
 			err := tool.ErrReqBadAny(tool.ErrReqUnexpectedHeader)
 			box.SetInfoLog(err)
@@ -91,19 +92,19 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 		id:           tool.NewId(1),
 		localName:    box.name,
 		remoteName:   name,
-		key:          tool.Key{},
+		key:          box.key,
 		conn:         conn,
 		root:         box,
 		parent:       nil,
 		networkSpeed: tool.NewNetworkSpeedTicker(),
-		writerChan:   nil,
+		writerLock:   sync.Mutex{},
 		stop:         make(chan uint8, 1),
 		disable:      atomic.Bool{},
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},
 		closerOnce:   sync.Once{},
 	}
-	err = sub.FastHandshake(tid)
+	err = sub.fastHandshake(tid)
 	if err != nil {
 		err = tool.ErrOpenSubBoxBadAny(err)
 		sub.Close()
@@ -139,7 +140,7 @@ func (box *DeviceBox) ListenSubBox(fn func(sub *SubBox)) error {
 
 func (box *DeviceBox) GetOtherDelayPing(name ...string) ([]tool.OdjPing, error) {
 	var resp []tool.OdjPing
-	err := box.newTaskCb(tool.DelayQ, 200, tool.OdjIdList{IdList: name}).waitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+	err := box.taskCbCtx.NewTaskCbCMsg(tool.DelayQ, 200, tool.OdjIdList{IdList: name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
 		if cMsg.Header != tool.DelayA {
 			err := tool.ErrReqBadAny(tool.ErrReqUnexpectedHeader)
 			box.SetInfoLog(err)

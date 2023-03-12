@@ -66,22 +66,17 @@ func (ps *ProxyServer) rangeProxyClient(fn func(key string, value *ProxyClient))
 
 func (ps *ProxyServer) getProxyClientDelay(key ...string) (resp []tool.OdjPing) {
 	if len(key) == 0 {
-		ps.proxyClientMap.Range(func(_, value any) bool {
-			if value != nil {
-				odj := value.(*ProxyClient)
-				resp = append(resp, tool.OdjPing{
-					Name:   odj.name,
-					Ping:   odj.ping,
-					Active: true,
-				})
-			}
-			return true
+		ps.rangeProxyClient(func(key string, value *ProxyClient) {
+			resp = append(resp, tool.OdjPing{
+				Name:   value.name,
+				Ping:   value.ping,
+				Active: true,
+			})
 		})
 	} else {
 		for _, one := range key {
-			odj, ok := ps.proxyClientMap.Load(one)
-			if ok && odj != nil {
-				pc := odj.(*ProxyClient)
+			pc, ok := ps.getProxyClient(one)
+			if ok {
 				resp = append(resp, tool.OdjPing{
 					Name:   pc.name,
 					Ping:   pc.ping,

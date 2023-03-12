@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bufio"
 	"github.com/peakedshout/go-CFC/loger"
 	"github.com/peakedshout/go-CFC/tool"
 	"net"
@@ -17,15 +16,16 @@ type DeviceBox struct {
 
 	addr *net.TCPAddr
 
-	conn         *net.TCPConn
-	writeChan    chan [][]byte
+	conn      *net.TCPConn
+	writeLock sync.Mutex
+	//writeChan    chan [][]byte
 	stop         chan uint8
 	ping         tool.Ping
 	networkSpeed tool.NetworkSpeedTicker
 
 	key tool.Key
 
-	taskFnMap sync.Map
+	taskCbCtx *tool.TaskCbContext
 
 	subMap     sync.Map
 	subMapLock sync.Mutex
@@ -37,15 +37,12 @@ type DeviceBox struct {
 }
 
 func (box *DeviceBox) listenCMsg() {
+	box.taskCbCtx.SetNoCb(box.cMsgHandler)
 	go func() {
-		reader := bufio.NewReaderSize(box.conn, tool.BufferSize)
-		for {
-			cMsg, err := box.key.ReadCMsg(reader, nil, box.networkSpeed.Download)
-			if err != nil {
-				box.SetWarnLog(err)
-				break
-			}
-			box.cMsgHandler(cMsg)
+		defer box.Close()
+		err := box.taskCbCtx.ReadCMsg()
+		if err != nil {
+			box.SetWarnLog(err)
 		}
 	}()
 }
@@ -54,14 +51,11 @@ func (box *DeviceBox) cMsgHandler(cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.SOpenA:
 		box.listenSub(cMsg)
-	default:
-		box.getTaskAndRun(cMsg.Id, cMsg)
 	}
 }
 
 func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 	if cMsg.Id != "" {
-		box.getTaskAndRun(cMsg.Id, cMsg)
 		return
 	}
 	if box.subListen == nil || box.subListenStop == nil {
@@ -82,19 +76,19 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		id:           tool.NewId(1),
 		localName:    box.name,
 		remoteName:   "",
-		key:          tool.Key{},
+		key:          box.key,
 		conn:         conn,
 		root:         box,
 		parent:       nil,
 		networkSpeed: tool.NewNetworkSpeedTicker(),
-		writerChan:   nil,
+		writerLock:   sync.Mutex{},
 		stop:         make(chan uint8, 1),
 		disable:      atomic.Bool{},
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},
 		closerOnce:   sync.Once{},
 	}
-	err = sub.FastHandshake(info.Msg)
+	err = sub.fastHandshake(info.Msg)
 	if err != nil {
 		err = tool.ErrOpenSubBoxBadAny(err)
 		sub.Close()
@@ -107,7 +101,7 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 }
 
 func (box *DeviceBox) handshakeCheck() error {
-	err := box.newTaskCb(tool.HandshakeCheckStepQ1, 200, nil).waitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+	err := box.taskCbCtx.NewTaskCbCMsg(tool.HandshakeCheckStepQ1, 200, nil).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
 		if cMsg.Header != tool.HandshakeCheckStepA1 || cMsg.Code != 200 {
 			return tool.ErrHandshakeIsDad
 		}
@@ -117,7 +111,7 @@ func (box *DeviceBox) handshakeCheck() error {
 		box.SetWarnLog(err)
 		return err
 	}
-	err = box.newTaskCb(tool.HandshakeCheckStepQ2, 200, tool.OdjClientInfo{Name: box.name}).waitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+	err = box.taskCbCtx.NewTaskCbCMsg(tool.HandshakeCheckStepQ2, 200, tool.OdjClientInfo{Name: box.name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
 		if cMsg.Header != tool.HandshakeCheckStepA2 || cMsg.Code != 200 {
 			return tool.ErrHandshakeIsDad
 		}
@@ -133,20 +127,12 @@ func (box *DeviceBox) handshakeCheck() error {
 
 func (box *DeviceBox) asyncWaitSendAndPing() {
 	go func() {
+		defer box.Close()
 		var t time.Time
 		tk := time.NewTicker(5 * time.Second)
 		defer tk.Stop()
 		for {
 			select {
-			case b := <-box.writeChan:
-				for _, one := range b {
-					n, err := box.conn.Write(one)
-					if err != nil {
-						box.SetWarnLog(err)
-						return
-					}
-					box.networkSpeed.Download.Set(n)
-				}
 			case <-box.stop:
 				box.stop <- 1
 				return
@@ -155,7 +141,7 @@ func (box *DeviceBox) asyncWaitSendAndPing() {
 					continue
 				}
 				t = time.Now()
-				box.newTaskCb(tool.PingMsg, 200, box.ping).nowaitCb(func(cMsg tool.ConnMsg) error {
+				box.taskCbCtx.NewTaskCbCMsg(tool.PingMsg, 200, box.ping).NowaitCb(func(cMsg tool.ConnMsg) error {
 					if cMsg.Header == tool.PongMsg && cMsg.Code == 200 {
 						box.ping.Ping = time.Now().Sub(t)
 					}
@@ -166,16 +152,31 @@ func (box *DeviceBox) asyncWaitSendAndPing() {
 	}()
 }
 
-func (box *DeviceBox) writerCMsg(header, id string, code int, data interface{}) {
+func (box *DeviceBox) Write(b []byte) (int, error) {
+	box.writeLock.Lock()
+	defer box.writeLock.Unlock()
 	if box.disable.Load() {
-		return
+		return 0, tool.ErrIsDisable
 	}
-	select {
-	case box.writeChan <- box.key.SetMsg(header, id, code, data):
-	case <-box.stop:
-		box.stop <- 1
+	n, err := box.conn.Write(b)
+	if err != nil {
+		return n, err
 	}
+	box.networkSpeed.Upload.Set(n)
+	return n, nil
 }
+func (box *DeviceBox) Read(b []byte) (int, error) {
+	if box.disable.Load() {
+		return 0, tool.ErrIsDisable
+	}
+	n, err := box.conn.Read(b)
+	if err != nil {
+		return n, err
+	}
+	box.networkSpeed.Download.Set(n)
+	return n, nil
+}
+
 func (box *DeviceBox) SetDeadline(timeout time.Duration) bool {
 	if box.conn == nil {
 		return false

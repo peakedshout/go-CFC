@@ -100,11 +100,8 @@ func makeBin(goos, arch string) {
 	cmd.Env = append(os.Environ())
 	b, err = cmd.CombinedOutput()
 	fmt.Println("c", goos, arch, string(b), err)
-	//err = cmd.Run()
-	//errCheck(err)
 	err = os.Chmod(c, 0777)
 	errCheck(err)
-
 }
 
 func getOutPath(goos, arch string, isServer bool) string {

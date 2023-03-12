@@ -117,7 +117,7 @@ func (k *Key) ReadCPacket(reader *bufio.Reader, skip *atomic.Bool) (b []byte, er
 		return nil, err
 	}
 	if num != 0 {
-		return pack[getHeaderSize():], ErrReadCMsgWaitPack
+		return pack[getHeaderSize():], errWaitPack
 	}
 	return pack[getHeaderSize():], nil
 }
