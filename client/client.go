@@ -41,7 +41,7 @@ func LinkProxyServer(name, addr, key string) (*DeviceBox, error) {
 	box := newBox(name, addr, key)
 	conn, err := net.DialTCP("tcp", nil, box.addr)
 	if err != nil {
-		box.SetWarnLog(err)
+		loger.SetLogWarn(err)
 		return nil, err
 	}
 	box.conn = conn
