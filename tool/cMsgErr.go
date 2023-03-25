@@ -42,6 +42,10 @@ var ErrSubIsDisable = errors.New("sub box is disable")
 var ErrBoxComplexListen = errors.New("box complex listen")
 var ErrBoxStopListen = errors.New("box stop listen")
 
+var ErrSubLocalAddrIsNil = errors.New("sub local addr is nil")
+
+var ErrUnexpectedSubOpenType = errors.New("unexpected sub open type")
+
 //var ErrHandleCMsgBad = errors.New("need one proxy client name to register")
 
 func ErrAppend(err error, errs ...error) error {

@@ -40,19 +40,27 @@ func NewTaskContext(rw io.ReadWriter, key Key) *TaskCbContext {
 	}
 }
 
+func (tc *TaskCbContext) Close() {
+	tc.disable.Store(true)
+}
+
 func (tc *TaskCbContext) ReadCMsg() error {
 	reader := bufio.NewReaderSize(tc.rw, BufferSize)
-	for {
+	for !tc.disable.Load() {
 		cMsg, err := tc.key.ReadCMsg(reader, &tc.disable, nil)
 		if err != nil {
 			return err
 		}
 		tc.getTaskAndRun(cMsg)
 	}
+	return ErrIsDisable
 }
 func (tc *TaskCbContext) WriteCMsg(header string, id string, code int, data interface{}) error {
 	tc.wLock.Lock()
 	defer tc.wLock.Unlock()
+	if tc.disable.Load() {
+		return ErrIsDisable
+	}
 	for _, one := range tc.key.SetMsg(header, id, code, data) {
 		_, err := tc.rw.Write(one)
 		if err != nil {
@@ -132,15 +140,7 @@ func (tc *TaskCbContext) NewTaskCbCMsgNeedId(header string, id string, code int,
 		ctx: tc,
 		id:  id,
 		fn: func() error {
-			tc.wLock.Lock()
-			defer tc.wLock.Unlock()
-			for _, one := range tc.key.SetMsg(header, id, code, data) {
-				_, err := tc.rw.Write(one)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
+			return tc.WriteCMsg(header, id, code, data)
 		},
 		cb:      nil,
 		wait:    make(chan error, 1),

@@ -13,10 +13,13 @@ type proxyTaskRoom struct {
 
 	c1 *ProxyClient
 	c2 *ProxyClient
+
+	i1 tool.OdjSubReq
+	i2 tool.OdjSubReq
 }
 
-func (ps *ProxyServer) joinTaskRoom(tid string, pc *ProxyClient) {
-	task, ok := ps.getTaskRoom(tid)
+func (ps *ProxyServer) joinTaskRoom(info tool.OdjSubReq, pc *ProxyClient) {
+	task, ok := ps.getTaskRoom(info.DstKey)
 	if !ok {
 		pc.SetInfoLog(tool.ErrHandleCMsgMissProxyTaskRoom)
 		return
@@ -24,17 +27,37 @@ func (ps *ProxyServer) joinTaskRoom(tid string, pc *ProxyClient) {
 	select {
 	case <-task.join:
 		task.c1 = pc
+		task.i1 = info
 	default:
-		ps.delTaskRoom(tid)
+		ps.delTaskRoom(info.DstKey)
 		task.c2 = pc
+		task.i2 = info
 		task.c1.fastOdjChan = task.c2.writeChan
 		task.c2.fastOdjChan = task.c1.writeChan
 		task.c1.fastConn.Store(true)
 		task.c2.fastConn.Store(true)
 		task.c1.fastOdj = task.c2
 		task.c2.fastOdj = task.c1
-		task.c1.writerCMsg(tool.TaskA, task.c2.parent.name, 200, nil)
-		task.c2.writerCMsg(tool.TaskA, task.c1.parent.name, 200, nil)
+
+		info1 := tool.SubInfo{
+			LocalName:          task.i1.SrcName,
+			RemoteName:         task.i2.SrcName,
+			LocalIntranetAddr:  task.i1.Addr,
+			RemoteIntranetAddr: task.i2.Addr,
+			LocalPublicAddr:    tool.MustResolveTCPAddr(task.c1.conn.RemoteAddr()),
+			RemotePublicAddr:   tool.MustResolveTCPAddr(task.c2.conn.RemoteAddr()),
+		}
+		info2 := tool.SubInfo{
+			LocalName:          task.i2.SrcName,
+			RemoteName:         task.i1.SrcName,
+			LocalIntranetAddr:  task.i2.Addr,
+			RemoteIntranetAddr: task.i1.Addr,
+			LocalPublicAddr:    tool.MustResolveTCPAddr(task.c2.conn.RemoteAddr()),
+			RemotePublicAddr:   tool.MustResolveTCPAddr(task.c1.conn.RemoteAddr()),
+		}
+
+		task.c1.writerCMsg(tool.TaskA, task.i1.Id, 200, info1)
+		task.c2.writerCMsg(tool.TaskA, task.i2.Id, 200, info2)
 		task.c1.SetDeadline(0)
 		task.c2.SetDeadline(0)
 

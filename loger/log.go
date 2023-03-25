@@ -6,17 +6,28 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
+var logLevelLock sync.RWMutex
+
 var logLevel uint8 = LogLevelInfo
-var needStack bool = false
+var needStack atomic.Bool
 
 func SetLoggerLevel(l uint8) {
+	logLevelLock.Lock()
+	defer logLevelLock.Unlock()
 	logLevel = l
 }
 func SetLoggerStack(need bool) {
-	needStack = need
+	needStack.Store(need)
+}
+func getLoggerLevel() uint8 {
+	logLevelLock.RLock()
+	defer logLevelLock.RUnlock()
+	return logLevel
 }
 
 const (
@@ -62,7 +73,8 @@ func SetLogMust(a ...any) {
 }
 
 func setLog(level uint8, a ...any) {
-	if level < logLevel || logLevel == LogLevelOff {
+	ll := getLoggerLevel()
+	if level < ll || ll == LogLevelOff {
 		return
 	} else {
 		pre := getPreTag(level)
@@ -121,7 +133,7 @@ func SprintColor(t, f, b int, body ...any) string {
 }
 
 func addStack() string {
-	if needStack {
+	if needStack.Load() {
 		return "\n[Stack View]:\n" + stack()
 	}
 	return ""

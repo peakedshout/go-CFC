@@ -22,3 +22,8 @@ const (
 	P2PTCpSucceed = "P2PTCpSucceed"
 	P2PTCpFailed  = "P2PTCpSucceed"
 )
+
+const (
+	SubOpenTypeDefault = "SubOpenTypeDefault"
+	SubOpenTypeTCPP2P  = "SubOpenTypeTCPP2P"
+)

@@ -58,25 +58,21 @@ func LinkProxyServer(name, addr, key string) (*DeviceBox, error) {
 }
 
 func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
-	tid := ""
-	err := box.taskCbCtx.NewTaskCbCMsg(tool.SOpenQ, 200, tool.OdjMsg{Msg: name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
-		if cMsg.Header != tool.SOpenA {
-			err := tool.ErrReqBadAny(tool.ErrReqUnexpectedHeader)
-			box.SetInfoLog(err)
-			return err
+	var info tool.OdjSubOpenResp
+	err := box.taskCbCtx.NewTaskCbCMsg(tool.SOpenQ, 200, tool.OdjSubOpenReq{
+		Type:    tool.SubOpenTypeDefault,
+		OdjName: name,
+	}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+		err1 := cMsg.CheckConnMsgHeaderAndCode(tool.SOpenA, 200)
+		if err1 != nil {
+			box.SetInfoLog(err1)
+			return err1
 		}
-		if cMsg.Code != 200 {
-			err := tool.ErrReqBadAny(cMsg.Code, cMsg.Data)
-			box.SetInfoLog(err)
-			return err
+		err1 = cMsg.Unmarshal(&info)
+		if err1 != nil {
+			box.SetInfoLog(err1)
+			return err1
 		}
-		var info tool.OdjMsg
-		err := tool.UnmarshalV2(cMsg.Data, &info)
-		if err != nil {
-			box.SetInfoLog(err)
-			return err
-		}
-		tid = info.Msg
 		return nil
 	})
 	if err != nil {
@@ -90,8 +86,7 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 	}
 	sub := &SubBox{
 		id:           tool.NewId(1),
-		localName:    box.name,
-		remoteName:   name,
+		addr:         nil,
 		key:          box.key,
 		conn:         conn,
 		root:         box,
@@ -104,7 +99,7 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 		subMapLock:   sync.Mutex{},
 		closerOnce:   sync.Once{},
 	}
-	err = sub.fastHandshake(tid)
+	err = sub.fastHandshake(info.Tid)
 	if err != nil {
 		err = tool.ErrOpenSubBoxBadAny(err)
 		sub.Close()
@@ -152,7 +147,7 @@ func (box *DeviceBox) GetOtherDelayPing(name ...string) ([]tool.OdjPing, error) 
 			return err
 		}
 		var info []tool.OdjPing
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			box.SetInfoLog(err)
 			return err

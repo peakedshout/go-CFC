@@ -9,8 +9,8 @@ import (
 
 func Test04() {
 	loger.SetLoggerLevel(loger.LogLevelError)
-	testPrint("04 test speed")
-	defer testPrint("04 test speed")
+	testPrint("04 _test speed")
+	defer testPrint("04 _test speed")
 	ctx := newServer()
 	defer ctx.closeAll()
 	time.Sleep(1 * time.Second)
@@ -32,7 +32,10 @@ func Test04() {
 		sub2 = sub
 		for {
 			_, err = sub.Write([]byte("test123"))
-			errCheck(err)
+			if err != nil {
+				loger.SetLogWarn(err)
+				break
+			}
 			time.Sleep(10 * time.Millisecond)
 		}
 	}()

@@ -145,8 +145,8 @@ func (ps *ProxyServer) cMsgProxyInitialization(pc *ProxyClient, cMsg tool.ConnMs
 		atomic.AddInt64(pc.step, 1)
 		pc.writerCMsg(tool.HandshakeCheckStepA1, cMsg.Id, 200, nil)
 	case tool.TaskQ:
-		var info tool.OdjSub
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		var info tool.OdjSubReq
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.close()
 			pc.SetInfoLog(err)
@@ -155,6 +155,11 @@ func (ps *ProxyServer) cMsgProxyInitialization(pc *ProxyClient, cMsg tool.ConnMs
 		if info.DstKey == "" {
 			pc.close()
 			pc.SetInfoLog(err)
+			return
+		}
+		if info.Addr == nil {
+			pc.close()
+			pc.SetInfoLog(tool.ErrSubLocalAddrIsNil)
 			return
 		}
 		if info.SrcName != "" {
@@ -167,14 +172,14 @@ func (ps *ProxyServer) cMsgProxyInitialization(pc *ProxyClient, cMsg tool.ConnMs
 			parent.setProxySubClient(pc.id, pc)
 			pc.parent = parent
 		}
-		ps.joinTaskRoom(info.DstKey, pc)
+		ps.joinTaskRoom(info, pc)
 	}
 }
 func (ps *ProxyServer) cMsgProxyRegister(pc *ProxyClient, cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.HandshakeCheckStepQ2:
 		var info tool.OdjClientInfo
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.close()
 			pc.SetInfoLog(err)
@@ -196,7 +201,7 @@ func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.PingMsg:
 		var info tool.Ping
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.close()
 			pc.SetInfoLog(err)
@@ -206,26 +211,32 @@ func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
 		pc.SetDeadline(60 * time.Second)
 		pc.writerCMsg(tool.PongMsg, cMsg.Id, 200, nil)
 	case tool.SOpenQ:
-		var info tool.OdjMsg
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		var info tool.OdjSubOpenReq
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.writerCMsg(tool.SOpenA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
 			pc.SetInfoLog(err)
 			return
 		}
-		odj, ok := ps.getProxyClient(info.Msg)
+		odj, ok := ps.getProxyClient(info.OdjName)
 		if !ok {
 			err = tool.ErrHandleCMsgMissProxyClient
 			pc.writerCMsg(tool.SOpenA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
-			pc.SetInfoLog(err, info.Msg)
+			pc.SetInfoLog(err, info)
 			return
 		}
 		tid := ps.newTaskRoom()
-		odj.writerCMsg(tool.SOpenA, "", 200, tool.OdjMsg{Msg: tid})
-		pc.writerCMsg(tool.SOpenA, cMsg.Id, 200, tool.OdjMsg{Msg: tid})
+		odj.writerCMsg(tool.SOpenA, "", 200, tool.OdjSubOpenResp{
+			Tid:  tid,
+			Type: info.Type,
+		})
+		pc.writerCMsg(tool.SOpenA, cMsg.Id, 200, tool.OdjSubOpenResp{
+			Tid:  tid,
+			Type: info.Type,
+		})
 	case tool.DelayQ:
 		var info tool.OdjIdList
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.writerCMsg(tool.DelayA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
 			pc.SetInfoLog(err)
@@ -237,7 +248,7 @@ func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
 		pc.writerCMsg(tool.SpeedA0, cMsg.Id, 200, ps.getAllProxyClientNetworkSpeed())
 	case tool.SpeedQ1:
 		var info tool.OdjIdList
-		err := tool.UnmarshalV2(cMsg.Data, &info)
+		err := cMsg.Unmarshal(&info)
 		if err != nil {
 			pc.writerCMsg(tool.SpeedA1, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
 			pc.SetInfoLog(err)

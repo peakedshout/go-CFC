@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+	"fmt"
 	"github.com/peakedshout/go-CFC/loger"
 	"github.com/peakedshout/go-CFC/tool"
 	"net"
@@ -61,21 +63,37 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 	if box.subListen == nil || box.subListenStop == nil {
 		return
 	}
-	var info tool.OdjMsg
-	err := tool.UnmarshalV2(cMsg.Data, &info)
+	var info tool.OdjSubOpenResp
+	err := cMsg.Unmarshal(&info)
 	if err != nil {
 		box.SetWarnLog(err)
 		return
 	}
-	conn, err := net.DialTCP("tcp", nil, box.addr)
-	if err != nil {
-		box.SetWarnLog(err)
+
+	var conn *net.TCPConn
+	switch info.Type {
+	case tool.SubOpenTypeTCPP2P:
+
+		rconn, err := newDialer(nil, 0).Dial("tcp", box.addr.String())
+		if err != nil {
+			box.SetWarnLog(err)
+			return
+		}
+		conn = rconn.(*net.TCPConn)
+		defer conn.Close()
+	case tool.SubOpenTypeDefault:
+		conn, err = net.DialTCP("tcp", nil, box.addr)
+		if err != nil {
+			box.SetWarnLog(err)
+			return
+		}
+	default:
+		box.SetWarnLog(tool.ErrUnexpectedSubOpenType)
 		return
 	}
 	sub := &SubBox{
 		id:           tool.NewId(1),
-		localName:    box.name,
-		remoteName:   "",
+		addr:         nil,
 		key:          box.key,
 		conn:         conn,
 		root:         box,
@@ -88,7 +106,7 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		subMapLock:   sync.Mutex{},
 		closerOnce:   sync.Once{},
 	}
-	err = sub.fastHandshake(info.Msg)
+	err = sub.fastHandshake(info.Tid)
 	if err != nil {
 		err = tool.ErrOpenSubBoxBadAny(err)
 		sub.Close()
@@ -96,6 +114,41 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		return
 	}
 	sub.SetDeadlineDuration(0)
+
+	switch info.Type {
+	case tool.SubOpenTypeTCPP2P:
+		ln, err := newListenConfig().Listen(context.Background(), conn.LocalAddr().Network(), conn.LocalAddr().String())
+		if err != nil {
+			sub.Close()
+			loger.SetLogMust(err)
+			return
+		}
+		time.Sleep(2 * time.Second)
+		//ln.Close()
+		var lconn *net.TCPConn
+		for i := 0; i < 3; i++ {
+			fmt.Println("wdwad", sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
+			pconn, err := newDialer(conn.LocalAddr(), 3*time.Second).Dial(sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
+			if err != nil {
+				loger.SetLogMust(err)
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			lconn = pconn.(*net.TCPConn)
+			break
+		}
+		if lconn == nil {
+			box.SetWarnLog(tool.ErrOpenSubBoxBadAny("p2p open bad"))
+			return
+		}
+		sub.conn = lconn
+		ln.Close()
+	case tool.SubOpenTypeDefault:
+	default:
+		box.SetWarnLog(tool.ErrUnexpectedSubOpenType)
+		return
+	}
+
 	box.setSubBox(sub.id, sub)
 	box.subListen <- sub
 }

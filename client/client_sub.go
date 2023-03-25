@@ -11,9 +11,7 @@ import (
 )
 
 type SubBox struct {
-	id         string
-	localName  string
-	remoteName string
+	id string
 
 	key tool.Key
 
@@ -21,6 +19,7 @@ type SubBox struct {
 	root         *DeviceBox
 	parent       *SubBox
 	networkSpeed tool.NetworkSpeedTicker
+	addr         *tool.SubInfo
 
 	writerLock sync.Mutex
 	stop       chan uint8
@@ -35,36 +34,40 @@ type SubBox struct {
 
 func (sub *SubBox) fastHandshake(tid string) error {
 	sub.SetDeadlineDuration(10 * time.Second)
-	err := sub.WriteCMsg(tool.TaskQ, "", 200, tool.OdjSub{
+	tc := tool.NewTaskContext(sub, sub.root.key)
+
+	go tc.ReadCMsg()
+	defer tc.Close()
+	id := tool.NewId(1)
+	err := tc.NewTaskCbCMsgNeedId(tool.TaskQ, id, 200, tool.OdjSubReq{
+		Id:      id,
 		SrcName: sub.root.name,
 		DstKey:  tid,
+		Addr:    tool.MustResolveTCPAddr(sub.conn.LocalAddr()),
+	}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+		defer tc.Close()
+		err1 := cMsg.CheckConnMsgHeaderAndCode(tool.TaskA, 200)
+		if err1 != nil {
+			sub.SetInfoLog(err1)
+			return err1
+		}
+		var info tool.SubInfo
+		err1 = cMsg.Unmarshal(&info)
+		if err1 != nil {
+			sub.SetInfoLog(err1)
+			return err1
+		}
+		if info.LocalName == "" || info.RemoteName == "" ||
+			info.LocalIntranetAddr == nil || info.RemoteIntranetAddr == nil ||
+			info.LocalPublicAddr == nil || info.RemotePublicAddr == nil {
+			err1 = tool.ErrOpenSubUnexpectedOdj
+			sub.SetInfoLog(err1)
+			return err1
+		}
+		sub.addr = &info
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-	reader := bufio.NewReaderSize(sub, tool.BufferSize)
-	cMsg, err := sub.root.key.ReadCMsg(reader, nil, nil)
-	if err != nil {
-		err = tool.ErrReqBadAny(err)
-		sub.SetInfoLog(err)
-		return err
-	}
-	if cMsg.Header != tool.TaskA {
-		err = tool.ErrReqBadAny(tool.ErrReqUnexpectedHeader)
-		sub.SetInfoLog(err)
-		return err
-	}
-	if cMsg.Code != 200 {
-		err = tool.ErrReqBadAny(cMsg.Code, cMsg.Data)
-		sub.SetInfoLog(err)
-		return err
-	}
-	if sub.remoteName != "" && sub.remoteName != cMsg.Id {
-		err = tool.ErrOpenSubUnexpectedOdj
-		sub.SetInfoLog(err)
-		return err
-	}
-	return nil
+	return err
 }
 
 func (sub *SubBox) Read(b []byte) (int, error) {
@@ -148,11 +151,42 @@ func (sub *SubBox) SetWriteDeadline(t time.Time) error {
 }
 
 func (sub *SubBox) GetLocalName() string {
-	return sub.localName
+	if sub.addr == nil {
+		return ""
+	}
+	return sub.addr.LocalName
 }
 
 func (sub *SubBox) GetRemoteName() string {
-	return sub.remoteName
+	if sub.addr == nil {
+		return ""
+	}
+	return sub.addr.RemoteName
+}
+
+func (sub *SubBox) GetLocalIntranetAddr() net.Addr {
+	if sub.addr == nil {
+		return nil
+	}
+	return sub.addr.LocalIntranetAddr
+}
+func (sub *SubBox) GetRemoteIntranetAddr() net.Addr {
+	if sub.addr == nil {
+		return nil
+	}
+	return sub.addr.RemoteIntranetAddr
+}
+func (sub *SubBox) GetLocalPublicAddr() net.Addr {
+	if sub.addr == nil {
+		return nil
+	}
+	return sub.addr.LocalPublicAddr
+}
+func (sub *SubBox) GetRemotePublicAddr() net.Addr {
+	if sub.addr == nil {
+		return nil
+	}
+	return sub.addr.RemotePublicAddr
 }
 
 func (sub *SubBox) delSubBox(key string) {

@@ -73,14 +73,18 @@ func (ctc *cfcTestCtx) dial() (*client.SubBox, error) {
 	return ctc.box2.GetSubBox(ctc.box1Name)
 }
 
+func (ctc *cfcTestCtx) dialByP2P() (*client.SubBox, error) {
+	return ctc.box2.GetSubBoxByP2P(ctc.box1Name)
+}
+
 var testCount int
 
 func testPrint(str string) {
 	switch testCount % 2 {
 	case 0:
-		log.Println("cfc test : ", str, "----- start	------------------------------")
+		log.Println("cfc _test : ", str, "----- start	------------------------------")
 	case 1:
-		log.Println("cfc test : ", str, "----- end		------------------------------")
+		log.Println("cfc _test : ", str, "----- end		------------------------------")
 	}
 	testCount++
 }

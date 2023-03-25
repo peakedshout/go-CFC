@@ -141,3 +141,8 @@ func MustBase64ToBytes(str string) []byte {
 	}
 	return b
 }
+
+func MustResolveTCPAddr(addr net.Addr) *net.TCPAddr {
+	tAddr, _ := net.ResolveTCPAddr(addr.Network(), addr.String())
+	return tAddr
+}

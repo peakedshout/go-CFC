@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-func Test03() {
+func Test05() {
 	loger.SetLoggerLevel(loger.LogLevelError)
-	testPrint("03 _test sub")
-	defer testPrint("03 _test sub")
+	testPrint("05 _test p2p")
+	defer testPrint("05 _test p2p")
 	ctx := newServer()
 	defer ctx.closeAll()
 	time.Sleep(1 * time.Second)
@@ -23,7 +23,7 @@ func Test03() {
 		errCheck(err)
 		a2 = string(b[:n])
 	})
-	sub, err := ctx.dial()
+	sub, err := ctx.dialByP2P()
 	errCheck(err)
 	test := "test123"
 	_, err = sub.Write([]byte(test))

@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"net"
 	"time"
 )
 
@@ -21,6 +22,14 @@ func (cMsg *ConnMsg) CheckConnMsgHeaderAndCode(header string, code int) error {
 	return nil
 }
 
+func (cMsg *ConnMsg) Unmarshal(out any) error {
+	return UnmarshalV2(cMsg.Data, out)
+}
+
+func (cMsg *ConnMsg) MustUnmarshal(out any) {
+	MustUnmarshalV2(cMsg.Data, out)
+}
+
 type Ping struct {
 	Ping time.Duration
 }
@@ -29,24 +38,35 @@ type OdjClientInfo struct {
 	Name string
 }
 
-type OdjAddr struct {
-	Id   string
-	Addr string
-}
-
 type OdjMsg struct {
 	Msg string
 }
 
-type OdjInfo struct {
-	Id       string
-	User     string
-	Password string
+type OdjSubOpenReq struct {
+	Type    string
+	OdjName string
+}
+type OdjSubOpenResp struct {
+	Tid  string
+	Type string
 }
 
-type OdjSub struct {
+type OdjSubReq struct {
+	Id      string
 	SrcName string
 	DstKey  string
+	Addr    *net.TCPAddr
+}
+
+type SubInfo struct {
+	LocalName  string
+	RemoteName string
+
+	LocalIntranetAddr  *net.TCPAddr
+	RemoteIntranetAddr *net.TCPAddr
+
+	LocalPublicAddr  *net.TCPAddr
+	RemotePublicAddr *net.TCPAddr
 }
 
 type OdjIdList struct {
@@ -56,9 +76,4 @@ type OdjPing struct {
 	Name   string
 	Ping   Ping
 	Active bool
-}
-
-type OdjP2P struct {
-	Addr   string
-	Status string
 }
