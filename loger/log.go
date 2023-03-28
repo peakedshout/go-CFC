@@ -2,6 +2,8 @@ package loger
 
 import (
 	"fmt"
+	"github.com/peakedshout/go-CFC/complexRW"
+	"io"
 	"net"
 	"os"
 	"runtime/debug"
@@ -15,6 +17,20 @@ var logLevelLock sync.RWMutex
 
 var logLevel uint8 = LogLevelInfo
 var needStack atomic.Bool
+
+var broadcast *complexRW.RWBroadcast
+
+func init() {
+	broadcast = complexRW.NewRWBroadcast(nil, 64)
+	broadcast.SetListener(os.Stdout)
+}
+
+func SetLoggerCopy(w io.Writer) complexRW.RWId {
+	return broadcast.SetListener(w)
+}
+func DelLoggerCopy(id complexRW.RWId) {
+	broadcast.DelListener(id)
+}
 
 func SetLoggerLevel(l uint8) {
 	logLevelLock.Lock()
@@ -81,14 +97,14 @@ func setLog(level uint8, a ...any) {
 		now := time.Now().Format("2006/01/02 15:04:05")
 		now = SprintColor(4, 1, 1, now)
 		body := Sprint(a...)
+
+		str := fmt.Sprintln(pre, now, body, addStack())
+		broadcast.Write([]byte(str))
 		switch level {
 		case LogLevelAll, LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelMust:
-			fmt.Println(pre, now, body, addStack())
 		case LogLevelError:
-			fmt.Println(pre, now, body, addStack())
 			panic(fmt.Sprintln(pre, now, body))
 		case LogLevelFatal:
-			fmt.Println(pre, now, body, addStack())
 			os.Exit(1)
 		}
 	}

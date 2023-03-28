@@ -17,7 +17,7 @@ func main() {
 	runClient()
 }
 func runClient() {
-	p := flag.String("c", "./config.json", "config file path , default is ./config_M.json")
+	p := flag.String("c", "./config.json", "config file path , default is ./config.json")
 	flag.Parse()
 	c := config.ReadConfig(*p)
 	if c.Setting.LogLevel == 0 {
