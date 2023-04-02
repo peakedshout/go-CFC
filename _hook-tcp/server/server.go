@@ -5,7 +5,7 @@ import (
 	"github.com/peakedshout/go-CFC/_hook-tcp/config"
 	"github.com/peakedshout/go-CFC/loger"
 	"github.com/peakedshout/go-CFC/server"
-	"time"
+	"github.com/peakedshout/go-CFC/tool"
 )
 
 func main() {
@@ -22,23 +22,10 @@ func runServer() {
 	loger.SetLoggerLevel(c.Setting.LogLevel)
 	loger.SetLoggerStack(c.Setting.LogStack)
 
-	var td time.Duration
-	if c.Setting.ReLinkTime != "" {
-		var err error
-		td, err = time.ParseDuration(c.Setting.ReLinkTime)
-		if err != nil {
-			loger.SetLogError(err)
-		}
-	}
-	if td == 0 {
+	err := tool.ReRun(c.Setting.ReLinkTime, func() {
 		server.NewProxyServer(c.ProxyServerHost.ProxyServerAddr, c.ProxyServerHost.LinkProxyKey).Wait()
-	} else {
-		if td < time.Second {
-			td = time.Second
-		}
-		for {
-			server.NewProxyServer(c.ProxyServerHost.ProxyServerAddr, c.ProxyServerHost.LinkProxyKey).Wait()
-			time.Sleep(td)
-		}
+	})
+	if err != nil {
+		loger.SetLogError(err)
 	}
 }

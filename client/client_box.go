@@ -149,8 +149,12 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		return
 	}
 
-	box.setSubBox(sub.id, sub)
-	box.subListen <- sub
+	select {
+	case box.subListen <- sub:
+		box.setSubBox(sub.id, sub)
+	default:
+		sub.Close()
+	}
 }
 
 func (box *DeviceBox) handshakeCheck() error {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 )
@@ -44,7 +45,8 @@ func runClient() {
 	if !bc.hasWork {
 		loger.SetLogError("This is meaningless : no work to handle")
 	}
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
 	<-ch
 }
 

@@ -86,7 +86,7 @@ func makeBin(goos, arch string) {
 
 	errCheck(err)
 	s := getOutPath(goos, arch, true)
-	cmd = exec.Command("go", "build", "-o", s, "./server/server.go")
+	cmd = exec.Command("go", "build", "-ldflags", "-s -w", "-o", s, "./server/server.go")
 	cmd.Env = append(os.Environ())
 	b, err = cmd.CombinedOutput()
 	fmt.Println("s", goos, arch, string(b), err)
@@ -96,7 +96,7 @@ func makeBin(goos, arch string) {
 	errCheck(err)
 
 	c := getOutPath(goos, arch, false)
-	cmd = exec.Command("go", "build", "-o", c, "./client/client.go")
+	cmd = exec.Command("go", "build", "-ldflags", "-s -w", "-o", c, "./client/client.go")
 	cmd.Env = append(os.Environ())
 	b, err = cmd.CombinedOutput()
 	fmt.Println("c", goos, arch, string(b), err)

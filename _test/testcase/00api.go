@@ -84,7 +84,7 @@ func testPrint(str string) {
 	case 0:
 		log.Println("cfc _test : ", str, "----- start	------------------------------")
 	case 1:
-		log.Println("cfc _test : ", str, "----- end		------------------------------")
+		log.Println("cfc _test : ", str, "----- end	------------------------------")
 	}
 	testCount++
 }

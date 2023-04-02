@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 func NewId(n int) (str string) {
@@ -145,4 +146,27 @@ func MustBase64ToBytes(str string) []byte {
 func MustResolveTCPAddr(addr net.Addr) *net.TCPAddr {
 	tAddr, _ := net.ResolveTCPAddr(addr.Network(), addr.String())
 	return tAddr
+}
+
+func ReRun(rt string, fn func()) error {
+	var td time.Duration
+	if rt != "" {
+		var err error
+		td, err = time.ParseDuration(rt)
+		if err != nil {
+			return nil
+		}
+	}
+	if td == 0 {
+		fn()
+	} else {
+		if td < time.Second {
+			td = time.Second
+		}
+		for {
+			fn()
+			time.Sleep(td)
+		}
+	}
+	return nil
 }
