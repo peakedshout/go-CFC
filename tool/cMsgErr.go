@@ -9,16 +9,23 @@ import (
 var ErrKeyIsNot32Bytes = errors.New("key is not 32bytes")
 var ErrNameIsNil = errors.New("name is nil")
 
-var ErrReadCSkipToFastConn = errors.New("skip to fastConn")
+var ErrReadCSkipToFastConn = errors.New("skip to LinkConn")
 var ErrReadCProtocolIsNotGoCFC = errors.New("the protocol is not go-CFC : is not " + version)
 var ErrReadCMsgLensTooShort = fmt.Errorf("lens: too small to %v  bytes", getHeaderSize())
 var ErrReadCMsgLensTooLong = fmt.Errorf("lens: too long to %v bytes", BufferSize)
 var ErrReadCMsgHashCheckFailed = errors.New("hash check failed")
 
-//var ErrReadCMsgWaitPack = errors.New("wait pack")
+// var ErrReadCMsgWaitPack = errors.New("wait pack")
 
-var ErrHandleCMsgMissProxyClient = errors.New("not Not found proxy client ")
+var ErrMethodIsRefused = errors.New("the method is refused")
+
+var ErrProxyClientIsClosed = errors.New("the proxy client is closed")
+
+var ErrHandleCMsgMissProxyClient = errors.New("not Not found proxy client")
+
 var ErrHandleCMsgMissProxyTaskRoom = errors.New("not Not found proxy task room ")
+
+var ErrDataException = errors.New("data exception")
 
 var ErrHandleCMsgProxyClientNameIsNil = errors.New("need one proxy client name to register")
 
@@ -42,9 +49,13 @@ var ErrSubIsDisable = errors.New("sub box is disable")
 var ErrBoxComplexListen = errors.New("box complex listen")
 var ErrBoxStopListen = errors.New("box stop listen")
 
+var ErrSubDstKeyIsNil = errors.New("sub dst key is nil")
 var ErrSubLocalAddrIsNil = errors.New("sub local addr is nil")
 
 var ErrUnexpectedSubOpenType = errors.New("unexpected sub open type")
+
+var ErrUnexpectedLinkConnType = errors.New("unexpected link conn type")
+var ErrLinkClientIsClosed = errors.New("link client is closed")
 
 //var ErrHandleCMsgBad = errors.New("need one proxy client name to register")
 

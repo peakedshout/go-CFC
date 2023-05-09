@@ -5,3 +5,13 @@ const (
 	ProxyRegister
 	ProxyBusiness
 )
+
+const (
+	taskRoomP1 = iota
+	taskRoomP2 = iota
+)
+
+const (
+	LinkTypePC  = "LinkTypePC"
+	LinkTypeVPN = "LinkTypeVPN"
+)

@@ -22,8 +22,9 @@ func runServer() {
 	loger.SetLoggerLevel(c.Setting.LogLevel)
 	loger.SetLoggerStack(c.Setting.LogStack)
 
-	err := tool.ReRun(c.Setting.ReLinkTime, func() {
+	err := tool.ReRun(c.Setting.ReLinkTime, func() bool {
 		server.NewProxyServer(c.ProxyServerHost.ProxyServerAddr, c.ProxyServerHost.LinkProxyKey).Wait()
+		return true
 	})
 	if err != nil {
 		loger.SetLogError(err)

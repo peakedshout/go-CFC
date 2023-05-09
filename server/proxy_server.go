@@ -7,23 +7,21 @@ import (
 )
 
 type ProxyServer struct {
-	addr *net.TCPAddr
-	ln   *net.TCPListener
+	addr net.Addr
+	ln   net.Listener
 
 	stop chan uint8
 
 	key tool.Key
 
-	//clientMap     map[string]*ProxyClient
-	//clientMapLock sync.Mutex
-
 	proxyClientMap     sync.Map //map[string]*ProxyClient
 	proxyClientMapLock sync.Mutex
 
-	//taskRoomMap     map[string]*proxyTaskRoom
-	//taskRoomMapLock sync.Mutex
-
 	proxyTaskRoomMap sync.Map //map[string]*proxyTaskRoom
+
+	proxyVPNRoomMap sync.Map //map[string]*proxyVPNRoom
+
+	config *Config
 }
 
 func (ps *ProxyServer) delProxyClient(key string) {

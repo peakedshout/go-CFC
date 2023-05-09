@@ -18,9 +18,13 @@ var logLevelLock sync.RWMutex
 var logLevel uint8 = LogLevelInfo
 var needStack atomic.Bool
 
+var needColor atomic.Bool
+
 var broadcast *complexRW.RWBroadcast
 
 func init() {
+	needColor.Store(true)
+	needStack.Store(false)
 	broadcast = complexRW.NewRWBroadcast(nil, 64)
 	broadcast.SetListener(os.Stdout)
 }
@@ -40,6 +44,11 @@ func SetLoggerLevel(l uint8) {
 func SetLoggerStack(need bool) {
 	needStack.Store(need)
 }
+
+func SetLoggerColor(need bool) {
+	needColor.Store(need)
+}
+
 func getLoggerLevel() uint8 {
 	logLevelLock.RLock()
 	defer logLevelLock.RUnlock()
@@ -52,13 +61,14 @@ const (
 	LogLevelDebug
 	LogLevelInfo
 	LogLevelWarn
+	LogLevelXY
 	LogLevelError
 	LogLevelFatal
 	LogLevelOff
 	LogLevelMust
 )
 
-var logShow = []string{"ALL", "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "OFF", "Must"}
+var logShow = []string{"ALL", "TRACE", "DEBUG", "INFO", "WARN", "Log", "ERROR", "FATAL", "OFF", "Must"}
 
 func SetLogAll(a ...any) {
 	setLog(LogLevelAll, a...)
@@ -74,6 +84,9 @@ func SetLogInfo(a ...any) {
 }
 func SetLogWarn(a ...any) {
 	setLog(LogLevelWarn, a...)
+}
+func SetLogXY(a ...any) {
+	setLog(LogLevelXY, a...)
 }
 func SetLogError(a ...any) {
 	setLog(LogLevelError, a...)
@@ -101,7 +114,7 @@ func setLog(level uint8, a ...any) {
 		str := fmt.Sprintln(pre, now, body, addStack())
 		broadcast.Write([]byte(str))
 		switch level {
-		case LogLevelAll, LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelMust:
+		case LogLevelAll, LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelXY, LogLevelMust:
 		case LogLevelError:
 			panic(fmt.Sprintln(pre, now, body))
 		case LogLevelFatal:
@@ -134,6 +147,8 @@ func getPreTag(logLevel uint8) (out string) {
 		out = SprintColor(7, 32, 42, "[", str, "]")
 	case LogLevelWarn:
 		out = SprintColor(7, 33, 43, "[", str, "]")
+	case LogLevelXY:
+		out = SprintColor(7, 38, 43, "[", str, "]")
 	case LogLevelError:
 		out = SprintColor(7, 31, 41, "[", str, "]")
 	case LogLevelFatal:
@@ -145,7 +160,11 @@ func getPreTag(logLevel uint8) (out string) {
 }
 
 func SprintColor(t, f, b int, body ...any) string {
-	return fmt.Sprintf("\033[%d;%d;%dm%s\033[0m", t, f, b, fmt.Sprint(body...))
+	if needColor.Load() {
+		return fmt.Sprintf("\033[%d;%d;%dm%s\033[0m", t, f, b, fmt.Sprint(body...))
+	} else {
+		return fmt.Sprint(body...)
+	}
 }
 
 func addStack() string {

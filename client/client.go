@@ -112,24 +112,49 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 }
 
 func (box *DeviceBox) ListenSubBox(fn func(sub *SubBox)) error {
-	if box.subListen != nil || box.subListenStop != nil {
+	box.ListenLock.Lock()
+	if box.isListen.Load() {
 		err := tool.ErrBoxComplexListen
+		box.ListenLock.Unlock()
 		loger.SetLogError(err)
+	} else {
+		box.subListen = make(chan *SubBox, 100)
+		box.subListenStop = make(chan error, 1)
+		box.isListen.Store(true)
+		box.ListenLock.Unlock()
 	}
-	box.subListen = make(chan *SubBox, 100)
-	box.subListenStop = make(chan error, 1)
 
-	//box.SetInfoLog("~~~ Start Listening SubBox ~~~")
 	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Start Listening SubBox ~~~"))
 	for {
 		select {
 		case sub := <-box.subListen:
 			go fn(sub)
 		case err := <-box.subListenStop:
+			box.subListenStop <- err
 			err = tool.ErrAppend(tool.ErrBoxStopListen, err)
 			box.SetWarnLog(err)
 			return err
 		}
+	}
+}
+
+func (box *DeviceBox) ListenSubBoxOnce() (sub *SubBox, err error) {
+	box.ListenLock.Lock()
+	if box.isListen.Load() {
+		box.ListenLock.Unlock()
+	} else {
+		box.subListen = make(chan *SubBox, 0)
+		box.subListenStop = make(chan error, 0)
+		box.isListen.Store(true)
+		box.ListenLock.Unlock()
+	}
+
+	select {
+	case sub = <-box.subListen:
+		return sub, nil
+	case err = <-box.subListenStop:
+		err = tool.ErrAppend(tool.ErrBoxStopListen, err)
+		return nil, err
 	}
 }
 
@@ -161,14 +186,17 @@ func (box *DeviceBox) GetOtherDelayPing(name ...string) ([]tool.OdjPing, error) 
 	return resp, nil
 }
 
-func (box *DeviceBox) Close() {
+func (box *DeviceBox) Close() error {
+	if box.conn == nil {
+		return tool.ErrConnIsNil
+	}
+	err := box.conn.Close()
 	box.closerOnce.Do(func() {
-		box.conn.Close()
 		box.stop <- 1
 		box.subMapLock.Lock()
 		defer box.subMapLock.Unlock()
 		box.disable.Store(true)
-		if box.subListenStop != nil {
+		if box.isListen.Load() {
 			box.subListenStop <- tool.ErrBoxIsClosed
 		}
 		box.rangeProxySubClient(func(key string, value *SubBox) {
@@ -176,6 +204,7 @@ func (box *DeviceBox) Close() {
 		})
 		loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Closed Proxy Box ~~~"))
 	})
+	return err
 }
 
 func (box *DeviceBox) Wait() {

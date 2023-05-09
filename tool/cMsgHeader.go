@@ -32,3 +32,13 @@ const P2PTcpQ2 = "P2PTcpQ2"
 const P2PTcpA2 = "P2PTcpA2"
 const P2PTcpQ3 = "P2PTcpQ3"
 const P2PTcpA3 = "P2PTcpA3"
+
+const ConnVPNQ1 = "ConnVPNQ1"
+const ConnVPNA1 = "ConnVPNA1"
+const ConnVPNQ2 = "ConnVPNQ2"
+const ConnVPNA2 = "ConnVPNA2"
+
+const HttpVPNFQ1 = "HttpVPNFQ1"
+const HttpVPNFA1 = "HttpVPNFA1"
+const HttpVPNFQ2 = "HttpVPNFQ2"
+const HttpVPNFA2 = "HttpVPNFA2"

@@ -115,6 +115,7 @@ func (sub *SubBox) Close() error {
 			errList = append(errList, value.Close())
 		})
 		err = tool.ErrAppend(err, errList...)
+		sub.root.delSubBox(sub.id)
 		sub.SetInfoLog("is closed")
 	})
 	return err

@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -32,6 +33,15 @@ func (cMsg *ConnMsg) MustUnmarshal(out any) {
 
 type Ping struct {
 	Ping time.Duration
+}
+
+type OdjErrMsg struct {
+	ErrMsg string
+}
+
+func NewErrMsg(pre string, err error) OdjErrMsg {
+	str := fmt.Sprintf(pre+" %v", err)
+	return OdjErrMsg{ErrMsg: str}
 }
 
 type OdjClientInfo struct {
@@ -77,3 +87,34 @@ type OdjPing struct {
 	Ping   Ping
 	Active bool
 }
+
+const (
+	LinkConnTypeTCP = "LinkConnTypeTCP"
+	LinkConnTypeUDP = "LinkConnTypeUDP"
+)
+
+type OdjVPNLinkAddr struct {
+	ConnType string
+	Addr     string
+}
+
+//type OdjHttpVPNLinkReq struct {
+//	Id      string
+//	SrcName string
+//	Key     string
+//	Data    []byte
+//}
+
+//type OdjHttpVPNOpenReq struct {
+//	Addr string
+//}
+//type OdjHttpVPNOpenResp struct {
+//	Key string
+//}
+
+//type OdjHttpVPNData struct {
+//	Data []byte
+//}
+//type OdjHttpVPNReq struct {
+//	Addr string
+//}

@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"github.com/peakedshout/go-CFC/loger"
 	"github.com/peakedshout/go-CFC/tool"
 	"net"
@@ -20,7 +19,7 @@ type DeviceBox struct {
 
 	conn      *net.TCPConn
 	writeLock sync.Mutex
-	//writeChan    chan [][]byte
+
 	stop         chan uint8
 	ping         tool.Ping
 	networkSpeed tool.NetworkSpeedTicker
@@ -32,6 +31,8 @@ type DeviceBox struct {
 	subMap     sync.Map
 	subMapLock sync.Mutex
 
+	ListenLock    sync.Mutex
+	isListen      atomic.Bool
 	subListen     chan *SubBox
 	subListenStop chan error
 
@@ -127,7 +128,7 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		//ln.Close()
 		var lconn *net.TCPConn
 		for i := 0; i < 3; i++ {
-			fmt.Println("wdwad", sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
+			//fmt.Println("wdwad", sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			pconn, err := newDialer(conn.LocalAddr(), 3*time.Second).Dial(sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			if err != nil {
 				loger.SetLogMust(err)
@@ -152,7 +153,8 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 	select {
 	case box.subListen <- sub:
 		box.setSubBox(sub.id, sub)
-	default:
+	case err := <-box.subListenStop:
+		box.subListenStop <- err
 		sub.Close()
 	}
 }

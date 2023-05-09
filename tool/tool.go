@@ -148,7 +148,7 @@ func MustResolveTCPAddr(addr net.Addr) *net.TCPAddr {
 	return tAddr
 }
 
-func ReRun(rt string, fn func()) error {
+func ReRun(rt string, fn func() bool) error {
 	var td time.Duration
 	if rt != "" {
 		var err error
@@ -164,7 +164,10 @@ func ReRun(rt string, fn func()) error {
 			td = time.Second
 		}
 		for {
-			fn()
+			r := fn()
+			if !r {
+				break
+			}
 			time.Sleep(td)
 		}
 	}

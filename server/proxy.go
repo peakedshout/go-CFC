@@ -11,25 +11,34 @@ import (
 )
 
 func NewProxyServer(addr, key string) *ProxyServer {
-	if len(key) != 32 {
-		loger.SetLogFatal(tool.ErrKeyIsNot32Bytes)
+	config := &Config{
+		RawKey:           key,
+		LnAddr:           addr,
+		lnAddr:           nil,
+		HandleWaitTime:   0,
+		PingWaitTime:     0,
+		CGTaskTime:       0,
+		SwitchVPNProxy:   false,
+		SwitchLinkClient: true,
 	}
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		loger.SetLogFatal("ResolveTCPAddr :", err)
-	}
+	return NewProxyServer2(config)
+}
 
+func NewProxyServer2(config *Config) *ProxyServer {
+	config.check()
 	ps := &ProxyServer{
-		addr:               tcpAddr,
+		addr:               config.lnAddr,
 		ln:                 nil,
 		stop:               make(chan uint8, 1),
-		key:                tool.NewKey(key),
+		key:                tool.NewKey(config.RawKey),
 		proxyClientMap:     sync.Map{},
 		proxyClientMapLock: sync.Mutex{},
 		proxyTaskRoomMap:   sync.Map{},
+		proxyVPNRoomMap:    sync.Map{},
+		config:             config,
 	}
 	go func() {
-		t := time.NewTimer(1 * time.Minute)
+		t := time.NewTimer(ps.config.CGTaskTime)
 		defer t.Stop()
 		select {
 		case <-t.C:
@@ -40,17 +49,17 @@ func NewProxyServer(addr, key string) *ProxyServer {
 		}
 	}()
 
-	ln, err := net.ListenTCP("tcp", tcpAddr)
+	ln, err := net.Listen(ps.addr.Network(), ps.addr.String())
 	if err != nil {
-		loger.SetLogError("ListenTCP :" + err.Error())
+		loger.SetLogError("Listen :" + err.Error())
 	}
 	ps.ln = ln
 	go func() {
 		defer ps.ln.Close()
 		for {
-			conn, err := ln.AcceptTCP()
+			conn, err := ln.Accept()
 			if err != nil {
-				loger.SetLogWarn("AcceptTCP :", err)
+				loger.SetLogWarn("Accept :", err)
 				return
 			}
 			go ps.tcpHandler(conn)
@@ -59,206 +68,203 @@ func NewProxyServer(addr, key string) *ProxyServer {
 	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Start Proxy Server ~~~"))
 	return ps
 }
-func (ps *ProxyServer) tcpHandler(conn *net.TCPConn) {
-	i := int64(0)
+func (ps *ProxyServer) tcpHandler(conn net.Conn) {
 	pc := &ProxyClient{
-		s:            ps,
+		ps:           ps,
 		id:           tool.NewId(1),
 		name:         "",
 		disable:      atomic.Bool{},
-		fastOdj:      nil,
-		fastConn:     atomic.Bool{},
-		fastOdjChan:  nil,
-		step:         &i,
-		stop:         make(chan uint8, 1),
-		closerOnce:   sync.Once{},
-		conn:         conn,
-		writeChan:    make(chan [][]byte, 1),
+		reader:       bufio.NewReaderSize(conn, tool.BufferSize),
+		key:          ps.key,
+		writeLock:    sync.Mutex{},
+		rawConn:      conn,
+		linkConn:     nil,
+		linkSwitch:   atomic.Bool{},
+		linkType:     "",
+		linkBox:      nil,
 		ping:         tool.Ping{},
 		networkSpeed: tool.NewNetworkSpeedTicker(),
+		step:         0,
+		closerOnce:   sync.Once{},
 		parent:       nil,
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},
 	}
 	defer pc.close()
-	pc.SetDeadline(10 * time.Second)
-	go func() {
-		for {
-			select {
-			case b := <-pc.writeChan:
-				for _, one := range b {
-					n, err := pc.conn.Write(one)
-					if err != nil {
-						pc.SetInfoLog(err)
-						return
-					}
-					pc.networkSpeed.Download.Set(n)
-				}
-			case <-pc.stop:
-				pc.stop <- 1
-				return
-			}
-		}
-	}()
-	reader := bufio.NewReaderSize(conn, tool.BufferSize)
+	pc.SetDeadline(time.Now().Add(ps.config.PingWaitTime))
+
 	for {
-		cMsg, err := ps.key.ReadCMsg(reader, &pc.fastConn, pc.networkSpeed.Upload)
-		if err != nil {
-			loger.SetLogInfo(err)
-			break
-		}
-		ps.cMsgHandler(pc, cMsg)
-	}
-	for {
-		if pc.fastConn.Load() {
-			var b [4 * 1024]byte
-			n, err := reader.Read(b[:])
+		if pc.linkSwitch.Load() {
+			err := pc.writeLinkConn()
 			if err != nil {
-				pc.SetInfoLog(err)
-				pc.close()
-				if pc.fastOdj != nil {
-					pc.fastOdj.close()
-				}
+				pc.SetInfoLog("linkConn:", err)
 				return
 			}
-			pc.writerFast(b[:n])
 		} else {
-			pc.close()
-			break
+			cMsg, err := pc.readCMsg()
+			if err != nil {
+				if err == tool.ErrReadCSkipToFastConn {
+					continue
+				}
+				pc.SetInfoLog(err)
+				break
+			}
+			pc.cMsgHandler(cMsg)
 		}
 	}
 }
-func (ps *ProxyServer) cMsgHandler(pc *ProxyClient, cMsg tool.ConnMsg) {
+
+func (pc *ProxyClient) cMsgHandler(cMsg tool.ConnMsg) {
 	pc.SetInfoLog(cMsg)
-	switch atomic.LoadInt64(pc.step) {
+	switch pc.step {
 	case ProxyInitialization:
-		ps.cMsgProxyInitialization(pc, cMsg)
+		pc.cMsgProxyInitialization(cMsg)
 	case ProxyRegister:
-		ps.cMsgProxyRegister(pc, cMsg)
+		pc.cMsgProxyRegister(cMsg)
 	case ProxyBusiness:
-		ps.cMsgProxyBusiness(pc, cMsg)
+		pc.cMsgProxyBusiness(cMsg)
 	}
 }
-func (ps *ProxyServer) cMsgProxyInitialization(pc *ProxyClient, cMsg tool.ConnMsg) {
+
+func (pc *ProxyClient) cMsgProxyInitialization(cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.HandshakeCheckStepQ1:
-		atomic.AddInt64(pc.step, 1)
-		pc.writerCMsg(tool.HandshakeCheckStepA1, cMsg.Id, 200, nil)
+		pc.step += 1
+		pc.writeCMsgAndCheck(tool.HandshakeCheckStepA1, cMsg.Id, 200, nil)
 	case tool.TaskQ:
-		var info tool.OdjSubReq
-		err := cMsg.Unmarshal(&info)
-		if err != nil {
+		if !pc.ps.config.SwitchLinkClient {
+			err := tool.ErrMethodIsRefused
+			pc.writeCMsgAndCheck(tool.TaskA, cMsg.Id, 401, tool.NewErrMsg("bad req : ", err))
 			pc.close()
 			pc.SetInfoLog(err)
+			return
+		}
+		var info tool.OdjSubReq
+		err := cMsg.Unmarshal(&info)
+		if pc.checkErrAndSend400ErrCMsg(tool.TaskA, cMsg.Id, err, true) {
 			return
 		}
 		if info.DstKey == "" {
-			pc.close()
-			pc.SetInfoLog(err)
+			err = tool.ErrSubDstKeyIsNil
+			pc.checkErrAndSend400ErrCMsg(tool.TaskA, cMsg.Id, err, true)
 			return
 		}
 		if info.Addr == nil {
-			pc.close()
-			pc.SetInfoLog(tool.ErrSubLocalAddrIsNil)
+			err = tool.ErrSubLocalAddrIsNil
+			pc.checkErrAndSend400ErrCMsg(tool.TaskA, cMsg.Id, err, true)
 			return
 		}
 		if info.SrcName != "" {
-			parent, ok := ps.getProxyClient(info.SrcName)
+			parent, ok := pc.ps.getProxyClient(info.SrcName)
 			if !ok {
-				pc.close()
-				pc.SetInfoLog(tool.ErrHandleCMsgMissProxyClient, info.SrcName)
+				err = tool.ErrHandleCMsgMissProxyClient
+				pc.checkErrAndSend400ErrCMsg(tool.TaskA, cMsg.Id, err, true)
 				return
 			}
 			parent.setProxySubClient(pc.id, pc)
 			pc.parent = parent
 		}
-		ps.joinTaskRoom(info, pc)
+		pc.ps.joinTaskRoom(info, pc)
+	case tool.ConnVPNQ1:
+		if !pc.ps.config.SwitchVPNProxy {
+			err := tool.ErrMethodIsRefused
+			pc.writeCMsgAndCheck(tool.ConnVPNA1, cMsg.Id, 401, tool.NewErrMsg("bad req : ", err))
+			pc.close()
+			pc.SetInfoLog(err)
+			return
+		}
+		var info tool.OdjVPNLinkAddr
+		err := cMsg.Unmarshal(&info)
+		if pc.checkErrAndSend400ErrCMsg(tool.ConnVPNA1, cMsg.Id, err, true) {
+			return
+		}
+		err = pc.linkVPNConn(info)
+		if pc.checkErrAndSend400ErrCMsg(tool.ConnVPNA1, cMsg.Id, err, true) {
+			return
+		}
+		pc.writeCMsgAndCheck(tool.ConnVPNA1, cMsg.Id, 200, nil)
 	}
 }
-func (ps *ProxyServer) cMsgProxyRegister(pc *ProxyClient, cMsg tool.ConnMsg) {
+
+func (pc *ProxyClient) cMsgProxyRegister(cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.HandshakeCheckStepQ2:
 		var info tool.OdjClientInfo
 		err := cMsg.Unmarshal(&info)
-		if err != nil {
-			pc.close()
-			pc.SetInfoLog(err)
+		if pc.checkErrAndSend400ErrCMsg(tool.HandshakeCheckStepA2, cMsg.Id, err, true) {
 			return
 		}
 		if info.Name == "" {
-			pc.writerCMsg(tool.HandshakeCheckStepA2, cMsg.Id, 400, nil)
-			pc.close()
-			pc.SetInfoLog(tool.ErrHandleCMsgProxyClientNameIsNil)
+			err = tool.ErrHandleCMsgProxyClientNameIsNil
+			pc.checkErrAndSend400ErrCMsg(tool.HandshakeCheckStepA2, cMsg.Id, err, true)
 			return
 		}
 		pc.name = info.Name
-		ps.setProxyClient(pc.name, pc)
-		pc.writerCMsg(tool.HandshakeCheckStepA2, cMsg.Id, 200, nil)
-		atomic.AddInt64(pc.step, 1)
+		pc.ps.setProxyClient(pc.name, pc)
+		pc.writeCMsgAndCheck(tool.HandshakeCheckStepA2, cMsg.Id, 200, nil)
+		pc.step += 1
 	}
 }
-func (ps *ProxyServer) cMsgProxyBusiness(pc *ProxyClient, cMsg tool.ConnMsg) {
+
+func (pc *ProxyClient) cMsgProxyBusiness(cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.PingMsg:
 		var info tool.Ping
 		err := cMsg.Unmarshal(&info)
-		if err != nil {
-			pc.close()
-			pc.SetInfoLog(err)
+		if pc.checkErrAndSend400ErrCMsg(tool.PingMsg, cMsg.Id, err, true) {
 			return
 		}
 		pc.ping = info
-		pc.SetDeadline(60 * time.Second)
-		pc.writerCMsg(tool.PongMsg, cMsg.Id, 200, nil)
+		pc.SetDeadline(time.Now().Add(pc.ps.config.PingWaitTime))
+		pc.writeCMsgAndCheck(tool.PongMsg, cMsg.Id, 200, nil)
 	case tool.SOpenQ:
-		var info tool.OdjSubOpenReq
-		err := cMsg.Unmarshal(&info)
-		if err != nil {
-			pc.writerCMsg(tool.SOpenA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
+		if !pc.ps.config.SwitchLinkClient {
+			err := tool.ErrMethodIsRefused
+			pc.writeCMsgAndCheck(tool.SOpenA, cMsg.Id, 401, tool.NewErrMsg("bad req : ", err))
 			pc.SetInfoLog(err)
 			return
 		}
-		odj, ok := ps.getProxyClient(info.OdjName)
-		if !ok {
-			err = tool.ErrHandleCMsgMissProxyClient
-			pc.writerCMsg(tool.SOpenA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
-			pc.SetInfoLog(err, info)
+		var info tool.OdjSubOpenReq
+		err := cMsg.Unmarshal(&info)
+		if pc.checkErrAndSend400ErrCMsg(tool.SOpenA, cMsg.Id, err, false) {
 			return
 		}
-		tid := ps.newTaskRoom()
-		odj.writerCMsg(tool.SOpenA, "", 200, tool.OdjSubOpenResp{
+		odj, ok := pc.ps.getProxyClient(info.OdjName)
+		if !ok {
+			err = tool.ErrHandleCMsgMissProxyClient
+			pc.checkErrAndSend400ErrCMsg(tool.SOpenA, cMsg.Id, err, false)
+			return
+		}
+		tid := pc.ps.newTaskRoom()
+		odj.writeCMsgAndCheck(tool.SOpenA, "", 200, tool.OdjSubOpenResp{
 			Tid:  tid,
 			Type: info.Type,
 		})
-		pc.writerCMsg(tool.SOpenA, cMsg.Id, 200, tool.OdjSubOpenResp{
+		pc.writeCMsgAndCheck(tool.SOpenA, cMsg.Id, 200, tool.OdjSubOpenResp{
 			Tid:  tid,
 			Type: info.Type,
 		})
 	case tool.DelayQ:
 		var info tool.OdjIdList
 		err := cMsg.Unmarshal(&info)
-		if err != nil {
-			pc.writerCMsg(tool.DelayA, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
-			pc.SetInfoLog(err)
+		if pc.checkErrAndSend400ErrCMsg(tool.DelayA, cMsg.Id, err, false) {
 			return
 		}
-		pingList := ps.getProxyClientDelay(info.IdList...)
-		pc.writerCMsg(tool.DelayA, cMsg.Id, 200, pingList)
+		pingList := pc.ps.getProxyClientDelay(info.IdList...)
+		pc.writeCMsgAndCheck(tool.DelayA, cMsg.Id, 200, pingList)
 	case tool.SpeedQ0:
-		pc.writerCMsg(tool.SpeedA0, cMsg.Id, 200, ps.getAllProxyClientNetworkSpeed())
+		pc.writeCMsgAndCheck(tool.SpeedA0, cMsg.Id, 200, pc.ps.getAllProxyClientNetworkSpeed())
 	case tool.SpeedQ1:
 		var info tool.OdjIdList
 		err := cMsg.Unmarshal(&info)
-		if err != nil {
-			pc.writerCMsg(tool.SpeedA1, cMsg.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
-			pc.SetInfoLog(err)
+		if pc.checkErrAndSend400ErrCMsg(tool.SpeedA1, cMsg.Id, err, false) {
 			return
 		}
-		pc.writerCMsg(tool.SpeedA1, cMsg.Id, 200, ps.getProxyClientNetworkSpeed(info.IdList...))
+		pc.writeCMsgAndCheck(tool.SpeedA1, cMsg.Id, 200, pc.ps.getProxyClientNetworkSpeed(info.IdList...))
 	case tool.SpeedQ2:
-		pc.writerCMsg(tool.SpeedA2, cMsg.Id, 200, pc.getAllNetworkSpeed())
+		pc.writeCMsgAndCheck(tool.SpeedA2, cMsg.Id, 200, pc.getAllNetworkSpeed())
 	case tool.SpeedQ3:
-		pc.writerCMsg(tool.SpeedA3, cMsg.Id, 200, pc.getNetworkSpeed())
+		pc.writeCMsgAndCheck(tool.SpeedA3, cMsg.Id, 200, pc.getNetworkSpeed())
 	}
 }
 
