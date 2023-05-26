@@ -36,19 +36,10 @@ type ProxyClient struct {
 	step       statusStep
 	closerOnce sync.Once
 
-	//fastOdj     *ProxyClient
-	//fastConn    atomic.Bool
-	//fastOdjChan chan [][]byte
-	//
-	//conn      *net.TCPConn
-	//writeChan chan [][]byte
-
 	parent *ProxyClient
 
 	subMap     sync.Map //map[string]*ProxyClient
 	subMapLock sync.Mutex
-
-	//vpnConn net.Conn
 }
 
 func (pc *ProxyClient) SetDeadline(t time.Time) error {

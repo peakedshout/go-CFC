@@ -38,6 +38,9 @@ var ErrHandshakeIsDad = errors.New("handshake is bad")
 var ErrReqUnexpectedHeader = errors.New("unexpected resp header")
 var ErrReqBadAny = func(a ...any) error { return fmt.Errorf("req bad : %v", a) }
 
+var ErrCheckUnexpectedHeader = errors.New("check err:  unexpected header")
+var ErrCheckBadAny = func(a ...any) error { return fmt.Errorf("check err: %v", a) }
+
 var ErrConnIsNil = errors.New("conn is nil")
 
 var ErrOpenSubUnexpectedOdj = errors.New("unexpected resp Odj")

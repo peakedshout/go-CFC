@@ -178,11 +178,11 @@ func (pc *ProxyClient) cMsgProxyInitialization(cMsg tool.ConnMsg) {
 		if pc.checkErrAndSend400ErrCMsg(tool.ConnVPNA1, cMsg.Id, err, true) {
 			return
 		}
-		err = pc.linkVPNConn(info)
+		err = pc.linkVPNConn(&info)
 		if pc.checkErrAndSend400ErrCMsg(tool.ConnVPNA1, cMsg.Id, err, true) {
 			return
 		}
-		pc.writeCMsgAndCheck(tool.ConnVPNA1, cMsg.Id, 200, nil)
+		pc.writeCMsgAndCheck(tool.ConnVPNA1, cMsg.Id, 200, info.AddrInfo)
 	}
 }
 

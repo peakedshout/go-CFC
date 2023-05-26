@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func (pc *ProxyClient) linkVPNConn(info tool.OdjVPNLinkAddr) error {
+func (pc *ProxyClient) linkVPNConn(info *tool.OdjVPNLinkAddr) error {
 	switch info.ConnType {
 	case tool.LinkConnTypeTCP:
 		raddr, err := net.ResolveTCPAddr("", info.Addr)
@@ -19,6 +19,9 @@ func (pc *ProxyClient) linkVPNConn(info tool.OdjVPNLinkAddr) error {
 			pc.SetInfoLog("vpn:", info.ConnType, info.Addr, err)
 			return err
 		}
+		info.AddrInfo.LinkConnType = tool.LinkConnTypeTCP
+		info.AddrInfo.LinkRemoteAddrTcp = conn.RemoteAddr().(*net.TCPAddr)
+		info.AddrInfo.LinkLocalAddrTcp = conn.LocalAddr().(*net.TCPAddr)
 		pc.initVPNSettings(conn)
 		return nil
 	case tool.LinkConnTypeUDP:
@@ -32,6 +35,9 @@ func (pc *ProxyClient) linkVPNConn(info tool.OdjVPNLinkAddr) error {
 			pc.SetInfoLog("vpn:", info.ConnType, info.Addr, err)
 			return err
 		}
+		info.AddrInfo.LinkConnType = tool.LinkConnTypeUDP
+		info.AddrInfo.LinkRemoteAddrUdp = conn.RemoteAddr().(*net.UDPAddr)
+		info.AddrInfo.LinkLocalAddrUdp = conn.LocalAddr().(*net.UDPAddr)
 		pc.initVPNSettings(conn)
 		return nil
 	default:

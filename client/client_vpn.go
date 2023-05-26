@@ -30,6 +30,8 @@ type LinkClient struct {
 	connAddr string
 	connType string
 
+	addr *tool.VpnInfo
+
 	copyConn net.Conn
 
 	linkConn net.Conn
@@ -121,6 +123,55 @@ func (lc *LinkClient) SetWriteDeadline(t time.Time) error {
 	return lc.copyConn.SetWriteDeadline(t)
 }
 
+func (lc *LinkClient) SetLinkDeadline(t time.Time) error {
+	return lc.linkConn.SetDeadline(t)
+}
+func (lc *LinkClient) SetLinkReadDeadline(t time.Time) error {
+	return lc.linkConn.SetReadDeadline(t)
+}
+func (lc *LinkClient) SetLinkWriteDeadline(t time.Time) error {
+	return lc.linkConn.SetWriteDeadline(t)
+}
+
+func (lc *LinkClient) SetCopyDeadline(t time.Time) error {
+	return lc.copyConn.SetDeadline(t)
+}
+func (lc *LinkClient) SetCopyReadDeadline(t time.Time) error {
+	return lc.copyConn.SetReadDeadline(t)
+}
+func (lc *LinkClient) SetCopyWriteDeadline(t time.Time) error {
+	return lc.copyConn.SetWriteDeadline(t)
+}
+
+func (lc *LinkClient) LinkLocalAddr() net.Addr {
+	if lc.addr.LinkConnType == tool.LinkConnTypeTCP {
+		return lc.addr.LinkLocalAddrTcp
+	} else {
+		return lc.addr.LinkLocalAddrUdp
+	}
+}
+func (lc *LinkClient) LinkRemoteAddr() net.Addr {
+	if lc.addr.LinkConnType == tool.LinkConnTypeTCP {
+		return lc.addr.LinkRemoteAddrTcp
+	} else {
+		return lc.addr.LinkRemoteAddrUdp
+	}
+}
+func (lc *LinkClient) CopyLocalAddr() net.Addr {
+	if lc.addr.CopyConnType == tool.CopyConnTypeTCP {
+		return lc.addr.CopyLocalAddrTcp
+	} else {
+		return lc.addr.CopyLocalAddrUdp
+	}
+}
+func (lc *LinkClient) CopyRemoteAddr() net.Addr {
+	if lc.addr.CopyConnType == tool.CopyConnTypeTCP {
+		return lc.addr.CopyRemoteAddrTcp
+	} else {
+		return lc.addr.CopyRemoteAddrUdp
+	}
+}
+
 func (lc *LinkClient) proxyConn() error {
 	if lc.connType != tool.LinkConnTypeTCP && lc.connType != tool.LinkConnTypeUDP {
 		loger.SetLogError()
@@ -193,15 +244,34 @@ func (lc *LinkClient) handleCMsg() {
 }
 
 func (lc *LinkClient) handshakeCheck() error {
+	addrInfo := &tool.VpnInfo{}
+	switch lc.copyConn.(type) {
+	case *net.TCPConn:
+		addrInfo.CopyConnType = tool.CopyConnTypeTCP
+		addrInfo.CopyRemoteAddrTcp = lc.copyConn.RemoteAddr().(*net.TCPAddr)
+		addrInfo.CopyLocalAddrTcp = lc.copyConn.LocalAddr().(*net.TCPAddr)
+	case *net.UDPConn:
+		addrInfo.CopyConnType = tool.CopyConnTypeUDP
+		addrInfo.CopyRemoteAddrUdp = lc.copyConn.RemoteAddr().(*net.UDPAddr)
+		addrInfo.CopyLocalAddrUdp = lc.copyConn.LocalAddr().(*net.UDPAddr)
+	}
+
 	req := tool.OdjVPNLinkAddr{
 		ConnType: lc.connType,
 		Addr:     lc.connAddr,
+		AddrInfo: addrInfo,
 	}
 	err := lc.taskCbCtx.NewTaskCbCMsg(tool.ConnVPNQ1, 200, req).WaitCb(3*time.Second, func(cMsg tool.ConnMsg) error {
 		err1 := cMsg.CheckConnMsgHeaderAndCode(tool.ConnVPNA1, 200)
 		if err1 != nil {
 			return err1
 		}
+		var info tool.VpnInfo
+		err1 = cMsg.Unmarshal(&info)
+		if err1 != nil {
+			return err1
+		}
+		lc.addr = &info
 		return nil
 	})
 	return err

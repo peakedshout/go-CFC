@@ -15,10 +15,10 @@ type ConnMsg struct {
 
 func (cMsg *ConnMsg) CheckConnMsgHeaderAndCode(header string, code int) error {
 	if cMsg.Header != header {
-		return ErrReqUnexpectedHeader
+		return ErrCheckUnexpectedHeader
 	}
 	if cMsg.Code != code {
-		return ErrReqBadAny(cMsg.Code, cMsg.Data)
+		return ErrCheckBadAny(cMsg.Code, cMsg.Data)
 	}
 	return nil
 }
@@ -79,6 +79,19 @@ type SubInfo struct {
 	RemotePublicAddr *net.TCPAddr
 }
 
+type VpnInfo struct {
+	LinkConnType      string
+	LinkRemoteAddrTcp *net.TCPAddr
+	LinkLocalAddrTcp  *net.TCPAddr
+	LinkRemoteAddrUdp *net.UDPAddr
+	LinkLocalAddrUdp  *net.UDPAddr
+	CopyConnType      string
+	CopyRemoteAddrTcp *net.TCPAddr
+	CopyLocalAddrTcp  *net.TCPAddr
+	CopyRemoteAddrUdp *net.UDPAddr
+	CopyLocalAddrUdp  *net.UDPAddr
+}
+
 type OdjIdList struct {
 	IdList []string
 }
@@ -91,11 +104,15 @@ type OdjPing struct {
 const (
 	LinkConnTypeTCP = "LinkConnTypeTCP"
 	LinkConnTypeUDP = "LinkConnTypeUDP"
+	CopyConnTypeTCP = "CopyConnTypeTCP"
+	CopyConnTypeUDP = "LinkConnTypeUDP"
 )
 
 type OdjVPNLinkAddr struct {
 	ConnType string
 	Addr     string
+
+	AddrInfo *VpnInfo
 }
 
 //type OdjHttpVPNLinkReq struct {
