@@ -17,4 +17,6 @@ func main() {
 	testcase.Test04()
 	//time.Sleep(1 * time.Second)
 	//testcase.Test05()
+	time.Sleep(1 * time.Second)
+	testcase.Test06()
 }

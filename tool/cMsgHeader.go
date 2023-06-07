@@ -42,3 +42,7 @@ const HttpVPNFQ1 = "HttpVPNFQ1"
 const HttpVPNFA1 = "HttpVPNFA1"
 const HttpVPNFQ2 = "HttpVPNFQ2"
 const HttpVPNFA2 = "HttpVPNFA2"
+
+const P2PUdpQ1 = "P2PUdpQ1"
+const P2PUdpA1 = "P2PUdpA1"
+const P2PUdpO = "P2PUdpO"

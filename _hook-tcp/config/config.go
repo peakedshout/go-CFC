@@ -12,8 +12,11 @@ type CFCHookConfig struct {
 	Setting         SettingConfig         `json:"Setting"`
 }
 type ProxyServerHostConfig struct {
-	ProxyServerAddr string `json:"ProxyServerAddr"`
-	LinkProxyKey    string `json:"LinkProxyKey"`
+	ProxyServerAddr  string `json:"ProxyServerAddr"`
+	LinkProxyKey     string `json:"LinkProxyKey"`
+	SwitchVPNProxy   bool   `json:"SwitchVPNProxy"`
+	SwitchLinkClient bool   `json:"SwitchLinkClient"`
+	SwitchUdpP2P     bool   `json:"SwitchUdpP2P"`
 }
 
 type ProxyDeviceBoxConfig struct {

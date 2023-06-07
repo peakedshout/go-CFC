@@ -4,7 +4,13 @@
     "?ProxyServerAddr": "代理服务主机的网络地址，请确保该地址是可用的，如果是代理服务主机，将会监听这个地址；如果是客户端设备，将会链接该地址。",
     "ProxyServerAddr": "",
     "?LinkProxyKey": "这是代理服务器主机和客户端设备通信用的对称密钥，请确保该值在两端是一致的；它必须是32位bytes，并且请保密它，因为它是确保通信加密的密钥。",
-    "LinkProxyKey": ""
+    "LinkProxyKey": "",
+    "?SwitchVPNProxy": "",
+    "SwitchVPNProxy": false,
+    "?SwitchLinkClient": "",
+    "SwitchLinkClient": true,
+    "?SwitchUdpP2P": "",
+    "SwitchUdpP2P": false
   },
   "?ProxyDeviceBox": "这里是用于注册客户端设备配置的参数，代理服务器主机不需要该参数。",
   "ProxyDeviceBox": {

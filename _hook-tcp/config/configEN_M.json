@@ -4,7 +4,13 @@
     "?ProxyServerAddr": "The network address of the proxy service host. Make sure that this address is available. If it is the proxy service host, it will listen to this address. If it is a client device, the address will be linked.",
     "ProxyServerAddr": "",
     "?LinkProxyKey": "This is the symmetric key for communication between the proxy server host and the client device. Make sure that the value is the same on both ends. It must be 32-bit bytes, and keep it secret, as it is the key that ensures the encryption of the communication.",
-    "LinkProxyKey": ""
+    "LinkProxyKey": "",
+    "?SwitchVPNProxy": "",
+    "SwitchVPNProxy": false,
+    "?SwitchLinkClient": "",
+    "SwitchLinkClient": true,
+    "?SwitchUdpP2P": "",
+    "SwitchUdpP2P": false
   },
   "?ProxyDeviceBox": "This parameter is used to register the client device configuration. The proxy server host does not need this parameter.",
   "ProxyDeviceBox": {

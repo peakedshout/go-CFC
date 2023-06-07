@@ -15,14 +15,13 @@ type SubBox struct {
 
 	key tool.Key
 
-	conn         *net.TCPConn
+	conn         net.Conn
 	root         *DeviceBox
 	parent       *SubBox
 	networkSpeed tool.NetworkSpeedTicker
 	addr         *tool.SubInfo
 
 	writerLock sync.Mutex
-	stop       chan uint8
 
 	disable atomic.Bool
 
@@ -106,7 +105,6 @@ func (sub *SubBox) Close() error {
 	}
 	err := sub.conn.Close()
 	sub.closerOnce.Do(func() {
-		sub.stop <- 1
 		sub.subMapLock.Lock()
 		defer sub.subMapLock.Unlock()
 		sub.disable.Store(true)
@@ -169,25 +167,49 @@ func (sub *SubBox) GetLocalIntranetAddr() net.Addr {
 	if sub.addr == nil {
 		return nil
 	}
-	return sub.addr.LocalIntranetAddr
+	if sub.addr.LocalIntranetAddr != nil {
+		return sub.addr.LocalIntranetAddr
+	}
+	if sub.addr.ULocalIntranetAddr != nil {
+		return sub.addr.ULocalIntranetAddr
+	}
+	return nil
 }
 func (sub *SubBox) GetRemoteIntranetAddr() net.Addr {
 	if sub.addr == nil {
 		return nil
 	}
-	return sub.addr.RemoteIntranetAddr
+	if sub.addr.RemoteIntranetAddr != nil {
+		return sub.addr.RemoteIntranetAddr
+	}
+	if sub.addr.URemoteIntranetAddr != nil {
+		return sub.addr.URemoteIntranetAddr
+	}
+	return nil
 }
 func (sub *SubBox) GetLocalPublicAddr() net.Addr {
 	if sub.addr == nil {
 		return nil
 	}
-	return sub.addr.LocalPublicAddr
+	if sub.addr.LocalPublicAddr != nil {
+		return sub.addr.LocalPublicAddr
+	}
+	if sub.addr.ULocalPublicAddr != nil {
+		return sub.addr.ULocalPublicAddr
+	}
+	return nil
 }
 func (sub *SubBox) GetRemotePublicAddr() net.Addr {
 	if sub.addr == nil {
 		return nil
 	}
-	return sub.addr.RemotePublicAddr
+	if sub.addr.RemotePublicAddr != nil {
+		return sub.addr.RemotePublicAddr
+	}
+	if sub.addr.URemotePublicAddr != nil {
+		return sub.addr.URemotePublicAddr
+	}
+	return nil
 }
 
 func (sub *SubBox) delSubBox(key string) {

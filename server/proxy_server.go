@@ -10,6 +10,8 @@ type ProxyServer struct {
 	addr net.Addr
 	ln   net.Listener
 
+	uP2PLn net.PacketConn
+
 	stop chan uint8
 
 	key tool.Key
@@ -19,9 +21,11 @@ type ProxyServer struct {
 
 	proxyTaskRoomMap sync.Map //map[string]*proxyTaskRoom
 
-	proxyVPNRoomMap sync.Map //map[string]*proxyVPNRoom
+	proxyUP2PMap sync.Map //map[string]*proxyUP2P
 
 	config *Config
+
+	*tool.CloseWaiter
 }
 
 func (ps *ProxyServer) delProxyClient(key string) {

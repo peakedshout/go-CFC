@@ -28,7 +28,17 @@ func errCheck(err error) {
 	}
 }
 func newServer() *cfcTestCtx {
-	ps := server.NewProxyServer(":9999", "6a647c0bf889419c84e461486f83d776")
+	config := &server.Config{
+		RawKey:           "6a647c0bf889419c84e461486f83d776",
+		LnAddr:           ":9999",
+		HandleWaitTime:   0,
+		PingWaitTime:     0,
+		CGTaskTime:       0,
+		SwitchVPNProxy:   true,
+		SwitchLinkClient: true,
+		SwitchUdpP2P:     true,
+	}
+	ps := server.NewProxyServer2(config)
 	return &cfcTestCtx{
 		ps:       ps,
 		box1Name: "box1",
@@ -54,7 +64,7 @@ func (ctc *cfcTestCtx) closeAll() {
 		ctc.box2.Close()
 	}
 	if ctc.ps != nil {
-		ctc.ps.Close()
+		ctc.ps.Close(nil)
 	}
 }
 
@@ -75,6 +85,10 @@ func (ctc *cfcTestCtx) dial() (*client.SubBox, error) {
 
 func (ctc *cfcTestCtx) dialByP2P() (*client.SubBox, error) {
 	return ctc.box2.GetSubBoxByP2P(ctc.box1Name)
+}
+
+func (ctc *cfcTestCtx) dialByUP2P() (*client.SubBox, error) {
+	return ctc.box2.GetSubBoxByUP2P(ctc.box1Name)
 }
 
 var testCount int

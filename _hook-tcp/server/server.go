@@ -22,8 +22,19 @@ func runServer() {
 	loger.SetLoggerLevel(c.Setting.LogLevel)
 	loger.SetLoggerStack(c.Setting.LogStack)
 
+	sc := &server.Config{
+		RawKey:           c.ProxyServerHost.LinkProxyKey,
+		LnAddr:           c.ProxyServerHost.ProxyServerAddr,
+		HandleWaitTime:   0,
+		PingWaitTime:     0,
+		CGTaskTime:       0,
+		SwitchVPNProxy:   c.ProxyServerHost.SwitchVPNProxy,
+		SwitchLinkClient: c.ProxyServerHost.SwitchLinkClient,
+		SwitchUdpP2P:     c.ProxyServerHost.SwitchUdpP2P,
+	}
+
 	err := tool.ReRun(c.Setting.ReLinkTime, func() bool {
-		server.NewProxyServer(c.ProxyServerHost.ProxyServerAddr, c.ProxyServerHost.LinkProxyKey).Wait()
+		server.NewProxyServer2(sc).Wait()
 		return true
 	})
 	if err != nil {

@@ -75,55 +75,6 @@ func (ps *ProxyServer) joinTaskRoom(info tool.OdjSubReq, pc *ProxyClient) {
 	}
 }
 
-//func (ps *ProxyServer) joinTaskRoom(info tool.OdjSubReq, pc *ProxyClient) {
-//	task, ok := ps.getTaskRoom(info.DstKey)
-//	if !ok {
-//		err := tool.ErrHandleCMsgMissProxyTaskRoom
-//		pc.SetInfoLog(err)
-//		pc.writerCMsg(tool.TaskA, info.Id, 400, tool.OdjMsg{Msg: "bad req :" + err.Error()})
-//		pc.close()
-//		return
-//	}
-//	select {
-//	case <-task.join:
-//		task.c1 = pc
-//		task.i1 = info
-//	default:
-//		ps.delTaskRoom(info.DstKey)
-//		task.c2 = pc
-//		task.i2 = info
-//		task.c1.fastOdjChan = task.c2.writeChan
-//		task.c2.fastOdjChan = task.c1.writeChan
-//		task.c1.fastConn.Store(true)
-//		task.c2.fastConn.Store(true)
-//		task.c1.fastOdj = task.c2
-//		task.c2.fastOdj = task.c1
-//
-//		info1 := tool.SubInfo{
-//			LocalName:          task.i1.SrcName,
-//			RemoteName:         task.i2.SrcName,
-//			LocalIntranetAddr:  task.i1.Addr,
-//			RemoteIntranetAddr: task.i2.Addr,
-//			LocalPublicAddr:    tool.MustResolveTCPAddr(task.c1.conn.RemoteAddr()),
-//			RemotePublicAddr:   tool.MustResolveTCPAddr(task.c2.conn.RemoteAddr()),
-//		}
-//		info2 := tool.SubInfo{
-//			LocalName:          task.i2.SrcName,
-//			RemoteName:         task.i1.SrcName,
-//			LocalIntranetAddr:  task.i2.Addr,
-//			RemoteIntranetAddr: task.i1.Addr,
-//			LocalPublicAddr:    tool.MustResolveTCPAddr(task.c2.conn.RemoteAddr()),
-//			RemotePublicAddr:   tool.MustResolveTCPAddr(task.c1.conn.RemoteAddr()),
-//		}
-//
-//		task.c1.writerCMsg(tool.TaskA, task.i1.Id, 200, info1)
-//		task.c2.writerCMsg(tool.TaskA, task.i2.Id, 200, info2)
-//		task.c1.SetDeadline(0)
-//		task.c2.SetDeadline(0)
-//
-//	}
-//}
-
 func (ps *ProxyServer) newTaskRoom() string {
 	t := &proxyTaskRoom{
 		id:         tool.NewId(1),

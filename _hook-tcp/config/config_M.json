@@ -4,7 +4,13 @@
     "?ProxyServerAddr": "",
     "ProxyServerAddr": "",
     "?LinkProxyKey": "",
-    "LinkProxyKey": ""
+    "LinkProxyKey": "",
+    "?SwitchVPNProxy": "",
+    "SwitchVPNProxy": false,
+    "?SwitchLinkClient": "",
+    "SwitchLinkClient": true,
+    "?SwitchUdpP2P": "",
+    "SwitchUdpP2P": false
   },
   "?ProxyDeviceBox": "",
   "ProxyDeviceBox": {

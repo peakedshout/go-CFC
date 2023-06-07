@@ -1,7 +1,10 @@
 {
   "ProxyServerHost": {
     "ProxyServerAddr": "",
-    "LinkProxyKey": ""
+    "LinkProxyKey": "",
+    "SwitchVPNProxy": false,
+    "SwitchLinkClient": true,
+    "SwitchUdpP2P": false
   },
   "ProxyDeviceBox": {
     "ProxyTcp": {

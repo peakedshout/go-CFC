@@ -93,7 +93,6 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 		parent:       nil,
 		networkSpeed: tool.NewNetworkSpeedTicker(),
 		writerLock:   sync.Mutex{},
-		stop:         make(chan uint8, 1),
 		disable:      atomic.Bool{},
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},

@@ -34,21 +34,42 @@ func NewProxyServer2(config *Config) *ProxyServer {
 		proxyClientMap:     sync.Map{},
 		proxyClientMapLock: sync.Mutex{},
 		proxyTaskRoomMap:   sync.Map{},
-		proxyVPNRoomMap:    sync.Map{},
+		proxyUP2PMap:       sync.Map{},
 		config:             config,
+		CloseWaiter:        tool.NewCloseWaiter(),
 	}
+	ps.setCloseFn()
+
+	if ps.config.SwitchUdpP2P {
+		ps.listenUP2P()
+	}
+
+	ps.gcTask()
+
+	ps.listenTcp()
+
+	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Start Proxy Server ~~~"))
+	return ps
+}
+
+func (ps *ProxyServer) gcTask() {
 	go func() {
 		t := time.NewTimer(ps.config.CGTaskTime)
 		defer t.Stop()
 		select {
 		case <-t.C:
 			ps.delExpireTaskRoom()
+			if ps.config.SwitchUdpP2P {
+				ps.delExpireUP2P()
+			}
 		case <-ps.stop:
 			ps.stop <- 1
 			return
 		}
 	}()
+}
 
+func (ps *ProxyServer) listenTcp() {
 	ln, err := net.Listen(ps.addr.Network(), ps.addr.String())
 	if err != nil {
 		loger.SetLogError("Listen :" + err.Error())
@@ -65,9 +86,8 @@ func NewProxyServer2(config *Config) *ProxyServer {
 			go ps.tcpHandler(conn)
 		}
 	}()
-	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Start Proxy Server ~~~"))
-	return ps
 }
+
 func (ps *ProxyServer) tcpHandler(conn net.Conn) {
 	pc := &ProxyClient{
 		ps:           ps,
@@ -265,22 +285,64 @@ func (pc *ProxyClient) cMsgProxyBusiness(cMsg tool.ConnMsg) {
 		pc.writeCMsgAndCheck(tool.SpeedA2, cMsg.Id, 200, pc.getAllNetworkSpeed())
 	case tool.SpeedQ3:
 		pc.writeCMsgAndCheck(tool.SpeedA3, cMsg.Id, 200, pc.getNetworkSpeed())
+	case tool.P2PUdpQ1:
+		if !pc.ps.config.SwitchUdpP2P {
+			err := tool.ErrMethodIsRefused
+			pc.writeCMsgAndCheck(tool.P2PUdpQ1, cMsg.Id, 401, tool.NewErrMsg("bad req : ", err))
+			pc.SetInfoLog(err)
+			return
+		}
+		var info tool.OdjUP2PKName
+		err := cMsg.Unmarshal(&info)
+		if pc.checkErrAndSend400ErrCMsg(tool.P2PUdpQ1, cMsg.Id, err, false) {
+			return
+		}
+		c, ok := pc.ps.getProxyClient(info.Name)
+		if !ok {
+			if pc.checkErrAndSend400ErrCMsg(tool.P2PUdpQ1, cMsg.Id, tool.ErrHandleCMsgMissProxyClient, false) {
+				return
+			}
+		}
+
+		id := pc.ps.newAndSetUP2P()
+		var resp tool.OdjUP2PKId
+		resp.Id = id
+		pc.writeCMsgAndCheck(tool.P2PUdpQ1, cMsg.Id, 200, resp)
+		c.writeCMsgAndCheck(tool.P2PUdpQ1, "", 200, resp)
 	}
 }
 
-func (ps *ProxyServer) Close() {
-	ps.ln.Close()
-	ps.stop <- 1
-	ps.proxyClientMapLock.Lock()
-	defer ps.proxyClientMapLock.Unlock()
-	ps.rangeProxyClient(func(key string, value *ProxyClient) {
-		value.close()
+func (ps *ProxyServer) setCloseFn() {
+	ps.CloseWaiter.AddCloseFn(func() {
+		if ps.ln != nil {
+			ps.ln.Close()
+		}
+		if ps.uP2PLn != nil {
+			ps.uP2PLn.Close()
+		}
+		ps.stop <- 1
+		ps.proxyClientMapLock.Lock()
+		defer ps.proxyClientMapLock.Unlock()
+		ps.rangeProxyClient(func(key string, value *ProxyClient) {
+			value.close()
+		})
+		loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Closed Proxy Server ~~~"))
 	})
-	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Closed Proxy Server ~~~"))
 }
 
-func (ps *ProxyServer) Wait() {
-	<-ps.stop
-	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ EndWait Proxy Server ~~~"))
-	ps.stop <- 1
-}
+//func (ps *ProxyServer) Close() {
+//	ps.ln.Close()
+//	ps.stop <- 1
+//	ps.proxyClientMapLock.Lock()
+//	defer ps.proxyClientMapLock.Unlock()
+//	ps.rangeProxyClient(func(key string, value *ProxyClient) {
+//		value.close()
+//	})
+//	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Closed Proxy Server ~~~"))
+//}
+//
+//func (ps *ProxyServer) Wait() {
+//	<-ps.stop
+//	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ EndWait Proxy Server ~~~"))
+//	ps.stop <- 1
+//}

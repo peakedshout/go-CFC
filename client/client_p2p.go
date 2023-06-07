@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"github.com/peakedshout/go-CFC/control"
 	"github.com/peakedshout/go-CFC/loger"
 	"github.com/peakedshout/go-CFC/tool"
@@ -49,7 +48,6 @@ func (box *DeviceBox) GetSubBoxByP2P(name string) (*SubBox, error) {
 		parent:       nil,
 		networkSpeed: tool.NewNetworkSpeedTicker(),
 		writerLock:   sync.Mutex{},
-		stop:         make(chan uint8, 1),
 		disable:      atomic.Bool{},
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},
@@ -68,7 +66,6 @@ func (box *DeviceBox) GetSubBoxByP2P(name string) (*SubBox, error) {
 	var ln net.Listener
 	go func() {
 		for i := 0; i < 3; i++ {
-			fmt.Println("32234234", sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			_, err := newDialer(conn.LocalAddr(), 3*time.Second).Dial(sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			if err != nil {
 				loger.SetLogMust(err)
@@ -77,10 +74,8 @@ func (box *DeviceBox) GetSubBoxByP2P(name string) (*SubBox, error) {
 			time.Sleep(500 * time.Millisecond)
 		}
 		time.Sleep(15 * time.Second)
-		fmt.Println("2e232332")
 		ln.Close()
 	}()
-	//time.Sleep(2 * time.Second)
 	ln, err = newListenConfig().Listen(context.Background(), rconn.LocalAddr().Network(), rconn.LocalAddr().String())
 	if err != nil {
 		sub.Close()

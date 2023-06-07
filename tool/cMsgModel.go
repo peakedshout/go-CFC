@@ -75,8 +75,14 @@ type SubInfo struct {
 	LocalIntranetAddr  *net.TCPAddr
 	RemoteIntranetAddr *net.TCPAddr
 
+	ULocalIntranetAddr  *net.UDPAddr
+	URemoteIntranetAddr *net.UDPAddr
+
 	LocalPublicAddr  *net.TCPAddr
 	RemotePublicAddr *net.TCPAddr
+
+	ULocalPublicAddr  *net.UDPAddr
+	URemotePublicAddr *net.UDPAddr
 }
 
 type VpnInfo struct {
@@ -135,3 +141,22 @@ type OdjVPNLinkAddr struct {
 //type OdjHttpVPNReq struct {
 //	Addr string
 //}
+
+type OdjUP2PKName struct {
+	Name string
+}
+
+type OdjUP2PKId struct {
+	Id string
+}
+
+type OdjUP2PReq struct {
+	Id      string
+	SrcName string
+	Addr    *net.UDPAddr
+}
+
+type OdjUP2PResp struct {
+	Addr *net.UDPAddr
+	Info *SubInfo
+}

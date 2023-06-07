@@ -54,6 +54,8 @@ func (box *DeviceBox) cMsgHandler(cMsg tool.ConnMsg) {
 	switch cMsg.Header {
 	case tool.SOpenA:
 		box.listenSub(cMsg)
+	case tool.P2PUdpQ1:
+		box.listenUP2P(cMsg)
 	}
 }
 
@@ -101,7 +103,6 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 		parent:       nil,
 		networkSpeed: tool.NewNetworkSpeedTicker(),
 		writerLock:   sync.Mutex{},
-		stop:         make(chan uint8, 1),
 		disable:      atomic.Bool{},
 		subMap:       sync.Map{},
 		subMapLock:   sync.Mutex{},

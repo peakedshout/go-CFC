@@ -19,6 +19,7 @@ type Config struct {
 
 	SwitchVPNProxy   bool
 	SwitchLinkClient bool
+	SwitchUdpP2P     bool
 }
 
 func (config *Config) check() {
