@@ -39,6 +39,11 @@ func (dl *Dialer) Close() error {
 func (dl *Dialer) Call(rname string) (net.Conn, error) {
 	return dl.box.GetSubBox(rname)
 }
+
+func (dl *Dialer) CallUP2P(rname string) (net.Conn, error) {
+	return dl.box.GetSubBoxByUP2P(rname)
+}
+
 func Dial(lname string, proxyAddr string, key string) (*Dialer, error) {
 	box, err := client.LinkProxyServer(lname, proxyAddr, key)
 	if err != nil {
