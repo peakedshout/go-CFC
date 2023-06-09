@@ -13,6 +13,8 @@ import (
 type SubBox struct {
 	id string
 
+	subType SubType
+
 	key tool.Key
 
 	conn         net.Conn
@@ -333,4 +335,8 @@ func (sub *SubBox) WriteQueueBytes(b [][]byte) error {
 		}
 	}
 	return nil
+}
+
+func (sub *SubBox) Type() string {
+	return sub.subType.String()
 }

@@ -31,10 +31,12 @@ type DeviceBox struct {
 	subMap     sync.Map
 	subMapLock sync.Mutex
 
-	ListenLock    sync.Mutex
+	listenLock    sync.Mutex
 	isListen      atomic.Bool
 	subListen     chan *SubBox
 	subListenStop chan error
+
+	switchListenUP2P atomic.Bool
 
 	closerOnce sync.Once
 }
@@ -55,6 +57,9 @@ func (box *DeviceBox) cMsgHandler(cMsg tool.ConnMsg) {
 	case tool.SOpenA:
 		box.listenSub(cMsg)
 	case tool.P2PUdpQ1:
+		if !box.switchListenUP2P.Load() {
+			return
+		}
 		box.listenUP2P(cMsg)
 	}
 }
@@ -125,11 +130,9 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 			loger.SetLogMust(err)
 			return
 		}
-		time.Sleep(2 * time.Second)
-		//ln.Close()
+		time.Sleep(100 * time.Millisecond)
 		var lconn *net.TCPConn
 		for i := 0; i < 3; i++ {
-			//fmt.Println("wdwad", sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			pconn, err := newDialer(conn.LocalAddr(), 3*time.Second).Dial(sub.GetRemotePublicAddr().Network(), sub.GetRemotePublicAddr().String())
 			if err != nil {
 				loger.SetLogMust(err)
@@ -307,4 +310,16 @@ func (box *DeviceBox) GetAllNetworkSpeedView() tool.NetworkSpeedView {
 	})
 	list = append(list, box.GetNetworkSpeedView())
 	return tool.CountAllNetworkSpeedView(list...)
+}
+
+func (box *DeviceBox) SwitchListenUP2P(r bool) {
+	box.switchListenUP2P.Store(r)
+}
+
+func (box *DeviceBox) ProxyAddr() net.Addr {
+	return box.conn.RemoteAddr()
+}
+
+func (box *DeviceBox) LocalAddr() net.Addr {
+	return box.conn.LocalAddr()
 }

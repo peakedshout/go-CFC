@@ -17,7 +17,7 @@ func (ln *Listener) Close() error {
 	return ln.box.Close()
 }
 func (ln *Listener) Addr() net.Addr {
-	return nil
+	return ln.box.LocalAddr()
 }
 
 func Listen(lname string, proxyAddr string, key string) (net.Listener, error) {
@@ -44,6 +44,11 @@ func (dl *Dialer) CallUP2P(rname string) (net.Conn, error) {
 	return dl.box.GetSubBoxByUP2P(rname)
 }
 
+func (dl *Dialer) CallMix(rname string, subTypes []client.SubType) (net.Conn, error) {
+	conn, _, err := dl.box.GetSubBoxBySubTypeMix(rname, subTypes)
+	return conn, err
+}
+
 func Dial(lname string, proxyAddr string, key string) (*Dialer, error) {
 	box, err := client.LinkProxyServer(lname, proxyAddr, key)
 	if err != nil {
@@ -54,4 +59,8 @@ func Dial(lname string, proxyAddr string, key string) (*Dialer, error) {
 
 func Proxy(proxyAddr string, key string) *server.ProxyServer {
 	return server.NewProxyServer(proxyAddr, key)
+}
+
+func ProxyConfig(config *server.Config) *server.ProxyServer {
+	return server.NewProxyServer2(config)
 }

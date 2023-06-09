@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// GetSubBoxByUP2P udp to kcp
 func (box *DeviceBox) GetSubBoxByUP2P(name string) (*SubBox, error) {
 	var info tool.OdjUP2PKId
 	err := box.taskCbCtx.NewTaskCbCMsg(tool.P2PUdpQ1, 200, tool.OdjUP2PKName{Name: name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
@@ -38,6 +39,7 @@ func (box *DeviceBox) GetSubBoxByUP2P(name string) (*SubBox, error) {
 
 	sub := &SubBox{
 		id:           tool.NewId(1),
+		subType:      SubTypeUP2P,
 		addr:         si,
 		key:          box.key,
 		conn:         conn,
@@ -168,6 +170,7 @@ func (box *DeviceBox) handleUP2P(kid string, IsClient bool) (net.Conn, *tool.Sub
 			return nil, nil, err
 		}
 		pc2.SetDeadline(time.Time{})
+		kcpConnSetParam(kconn)
 		return kconn, info.Info, nil
 	} else {
 		ln, err := kcp.ServeConn(nil, 0, 0, pc2)
@@ -175,8 +178,9 @@ func (box *DeviceBox) handleUP2P(kid string, IsClient bool) (net.Conn, *tool.Sub
 			box.SetWarnLog(err)
 			return nil, nil, err
 		}
+		kcpListenSetParam(ln)
 		for {
-			kconn, err := ln.Accept()
+			kconn, err := ln.AcceptKCP()
 			if err != nil {
 				box.SetWarnLog(err)
 				return nil, nil, err
@@ -186,6 +190,7 @@ func (box *DeviceBox) handleUP2P(kid string, IsClient bool) (net.Conn, *tool.Sub
 				continue
 			}
 			pc2.SetDeadline(time.Time{})
+			kcpConnSetParam(kconn)
 			return kconn, info.Info, nil
 		}
 	}
@@ -234,4 +239,20 @@ func handshakeUP2P(conn net.PacketConn, addr net.Addr, kid string) error {
 func newUP2PLn(addr string) (net.PacketConn, error) {
 	lc := net.ListenConfig{Control: control.NetControl}
 	return lc.ListenPacket(context.Background(), "udp", addr)
+}
+
+func kcpConnSetParam(conn *kcp.UDPSession) {
+	conn.SetStreamMode(true)
+	conn.SetWindowSize(8192, 8192)
+	conn.SetReadBuffer(1 * 1024 * 1024)
+	conn.SetWriteBuffer(1 * 1024 * 1024)
+	conn.SetNoDelay(0, 100, 1, 1)
+	conn.SetMtu(1024)
+	conn.SetACKNoDelay(false)
+}
+
+func kcpListenSetParam(listener *kcp.Listener) {
+	listener.SetReadBuffer(1 * 1024 * 1024)
+	listener.SetWriteBuffer(1 * 1024 * 1024)
+	listener.SetDSCP(46)
 }

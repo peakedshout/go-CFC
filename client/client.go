@@ -21,19 +21,25 @@ func newBox(name, addr, key string) *DeviceBox {
 		loger.SetLogError("ResolveTCPAddr :", err)
 	}
 	box := &DeviceBox{
-		name:          name,
-		addr:          tcpAddr,
-		conn:          nil,
-		writeLock:     sync.Mutex{},
-		stop:          make(chan uint8, 1),
-		ping:          tool.Ping{},
-		networkSpeed:  tool.NewNetworkSpeedTicker(),
-		key:           tool.NewKey(key),
-		taskCbCtx:     nil,
-		subMap:        sync.Map{},
-		subListen:     nil,
-		subListenStop: nil,
-		closerOnce:    sync.Once{},
+		name:             name,
+		disable:          atomic.Bool{},
+		handshake:        atomic.Bool{},
+		addr:             tcpAddr,
+		conn:             nil,
+		writeLock:        sync.Mutex{},
+		stop:             make(chan uint8, 1),
+		ping:             tool.Ping{},
+		networkSpeed:     tool.NewNetworkSpeedTicker(),
+		key:              tool.NewKey(key),
+		taskCbCtx:        nil,
+		subMap:           sync.Map{},
+		subMapLock:       sync.Mutex{},
+		listenLock:       sync.Mutex{},
+		isListen:         atomic.Bool{},
+		subListen:        nil,
+		subListenStop:    nil,
+		switchListenUP2P: atomic.Bool{},
+		closerOnce:       sync.Once{},
 	}
 	return box
 }
@@ -86,6 +92,7 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 	}
 	sub := &SubBox{
 		id:           tool.NewId(1),
+		subType:      SubTypeProxy,
 		addr:         nil,
 		key:          box.key,
 		conn:         conn,
@@ -111,16 +118,16 @@ func (box *DeviceBox) GetSubBox(name string) (*SubBox, error) {
 }
 
 func (box *DeviceBox) ListenSubBox(fn func(sub *SubBox)) error {
-	box.ListenLock.Lock()
+	box.listenLock.Lock()
 	if box.isListen.Load() {
 		err := tool.ErrBoxComplexListen
-		box.ListenLock.Unlock()
+		box.listenLock.Unlock()
 		loger.SetLogError(err)
 	} else {
 		box.subListen = make(chan *SubBox, 100)
 		box.subListenStop = make(chan error, 1)
 		box.isListen.Store(true)
-		box.ListenLock.Unlock()
+		box.listenLock.Unlock()
 	}
 
 	loger.SetLogMust(loger.SprintColor(5, 37, 37, "~~~ Start Listening SubBox ~~~"))
@@ -138,14 +145,14 @@ func (box *DeviceBox) ListenSubBox(fn func(sub *SubBox)) error {
 }
 
 func (box *DeviceBox) ListenSubBoxOnce() (sub *SubBox, err error) {
-	box.ListenLock.Lock()
+	box.listenLock.Lock()
 	if box.isListen.Load() {
-		box.ListenLock.Unlock()
+		box.listenLock.Unlock()
 	} else {
 		box.subListen = make(chan *SubBox, 0)
 		box.subListenStop = make(chan error, 0)
 		box.isListen.Store(true)
-		box.ListenLock.Unlock()
+		box.listenLock.Unlock()
 	}
 
 	select {

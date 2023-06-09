@@ -127,13 +127,18 @@ func (pc *ProxyClient) initLinkConn(conn net.Conn, linkType string, rf, wf tool.
 	pc.linkSwitch.Store(true)
 	lb := tool.NewLinkBox(pc.linkConn, tool.BufferSize, rf, wf)
 	pc.linkBox = lb
-	go pc.readLinkConn()
+	switch linkType {
+	case LinkTypeVPN:
+		go pc.readLinkConn()
+	case LinkTypePC:
+		return
+	}
 }
 func (pc *ProxyClient) writeLinkConn() error {
 	return pc.linkBox.WriteLinkBoxFromReader(pc.reader)
 }
 func (pc *ProxyClient) readLinkConn() {
-	defer pc.linkConn.Close()
+	defer pc.close()
 	for {
 		err := pc.linkBox.ReadLinkBoxToWriter(pc.rawConn, &pc.writeLock)
 		if err != nil {
@@ -150,7 +155,6 @@ func (pc *ProxyClient) close() {
 		if pc.linkConn != nil {
 			pc.linkConn.Close()
 		}
-		//pc.stop <- 1
 		pc.subMapLock.Lock()
 		defer pc.subMapLock.Unlock()
 		pc.rangeProxySubClient(func(key string, value *ProxyClient) {

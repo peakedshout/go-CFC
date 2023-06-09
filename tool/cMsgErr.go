@@ -60,6 +60,9 @@ var ErrUnexpectedSubOpenType = errors.New("unexpected sub open type")
 var ErrUnexpectedLinkConnType = errors.New("unexpected link conn type")
 var ErrLinkClientIsClosed = errors.New("link client is closed")
 
+var ErrSubTypeInvalid = errors.New("sub type invalid")
+var ErrSubTypeToMixGetSubBoxFailed = errors.New("sub type to mix get sub box failed")
+
 //var ErrHandleCMsgBad = errors.New("need one proxy client name to register")
 
 func ErrAppend(err error, errs ...error) error {

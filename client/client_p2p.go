@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// GetSubBoxByP2P tcp to p2p It's very difficult, Do not use. If you need p2p, please use GetSubBoxByUP2P
 func (box *DeviceBox) GetSubBoxByP2P(name string) (*SubBox, error) {
 	var info tool.OdjSubOpenResp
 	err := box.taskCbCtx.NewTaskCbCMsg(tool.SOpenQ, 200, tool.OdjSubOpenReq{
@@ -41,6 +42,7 @@ func (box *DeviceBox) GetSubBoxByP2P(name string) (*SubBox, error) {
 	conn := rconn.(*net.TCPConn)
 	sub := &SubBox{
 		id:           tool.NewId(1),
+		subType:      SubTypeP2P,
 		addr:         nil,
 		key:          box.key,
 		conn:         conn,
