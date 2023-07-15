@@ -45,7 +45,8 @@ func NewErrMsg(pre string, err error) OdjErrMsg {
 }
 
 type OdjClientInfo struct {
-	Name string
+	Name      string
+	Anonymity bool
 }
 
 type OdjMsg struct {

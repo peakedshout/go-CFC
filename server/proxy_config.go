@@ -20,6 +20,7 @@ type Config struct {
 	SwitchVPNProxy   bool
 	SwitchLinkClient bool
 	SwitchUdpP2P     bool
+	SwitchAnonymity  bool
 }
 
 func (config *Config) check() {

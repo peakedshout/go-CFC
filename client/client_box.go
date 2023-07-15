@@ -11,7 +11,9 @@ import (
 )
 
 type DeviceBox struct {
-	name      string
+	name        string
+	isAnonymity bool
+
 	disable   atomic.Bool
 	handshake atomic.Bool
 
@@ -165,8 +167,9 @@ func (box *DeviceBox) listenSub(cMsg tool.ConnMsg) {
 
 func (box *DeviceBox) handshakeCheck() error {
 	err := box.taskCbCtx.NewTaskCbCMsg(tool.HandshakeCheckStepQ1, 200, nil).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
-		if cMsg.Header != tool.HandshakeCheckStepA1 || cMsg.Code != 200 {
-			return tool.ErrHandshakeIsDad
+		err1 := cMsg.CheckConnMsgHeaderAndCode(tool.HandshakeCheckStepA1, 200)
+		if err1 != nil {
+			return tool.ErrAppend(tool.ErrHandshakeIsBad, err1)
 		}
 		return nil
 	})
@@ -174,10 +177,18 @@ func (box *DeviceBox) handshakeCheck() error {
 		box.SetWarnLog(err)
 		return err
 	}
-	err = box.taskCbCtx.NewTaskCbCMsg(tool.HandshakeCheckStepQ2, 200, tool.OdjClientInfo{Name: box.name}).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
-		if cMsg.Header != tool.HandshakeCheckStepA2 || cMsg.Code != 200 {
-			return tool.ErrHandshakeIsDad
+	var info = tool.OdjClientInfo{Name: box.name, Anonymity: box.isAnonymity}
+	err = box.taskCbCtx.NewTaskCbCMsg(tool.HandshakeCheckStepQ2, 200, info).WaitCb(10*time.Second, func(cMsg tool.ConnMsg) error {
+		err1 := cMsg.CheckConnMsgHeaderAndCode(tool.HandshakeCheckStepA2, 200)
+		if err1 != nil {
+			return tool.ErrAppend(tool.ErrHandshakeIsBad, err1)
 		}
+		err1 = cMsg.Unmarshal(&info)
+		if err1 != nil {
+			return tool.ErrAppend(tool.ErrHandshakeIsBad, err1)
+		}
+		box.name = info.Name
+		box.isAnonymity = info.Anonymity
 		return nil
 	})
 	if err != nil {
@@ -322,4 +333,27 @@ func (box *DeviceBox) ProxyAddr() net.Addr {
 
 func (box *DeviceBox) LocalAddr() net.Addr {
 	return box.conn.LocalAddr()
+}
+
+func (box *DeviceBox) Name() string {
+	return box.name
+}
+
+func (box *DeviceBox) IsAnonymity() bool {
+	return box.isAnonymity
+}
+
+func (box *DeviceBox) SubNumbers() int {
+	box.subMapLock.Lock()
+	defer box.subMapLock.Unlock()
+	i := 0
+	box.subMap.Range(func(key, value any) bool {
+		i++
+		return true
+	})
+	return i
+}
+
+func (box *DeviceBox) GetSubBoxFromSid(sid string) (*SubBox, bool) {
+	return box.getSubBox(sid)
 }

@@ -37,6 +37,7 @@ func newServer() *cfcTestCtx {
 		SwitchVPNProxy:   true,
 		SwitchLinkClient: true,
 		SwitchUdpP2P:     true,
+		SwitchAnonymity:  true,
 	}
 	ps := server.NewProxyServer2(config)
 	return &cfcTestCtx{
@@ -56,6 +57,17 @@ func (ctc *cfcTestCtx) new2Link() {
 	ctc.box2 = box2
 }
 
+func (ctc *cfcTestCtx) new2LinkAnonymity() {
+	box1, err := client.LinkProxyServerFromAnonymity("127.0.0.1:9999", "6a647c0bf889419c84e461486f83d776")
+	errCheck(err)
+	ctc.box1Name = box1.Name()
+	box2, err := client.LinkProxyServerFromAnonymity("127.0.0.1:9999", "6a647c0bf889419c84e461486f83d776")
+	errCheck(err)
+	ctc.box2Name = box2.Name()
+	ctc.box1 = box1
+	ctc.box2 = box2
+}
+
 func (ctc *cfcTestCtx) closeAll() {
 	if ctc.box1 != nil {
 		ctc.box1.Close()
@@ -71,6 +83,7 @@ func (ctc *cfcTestCtx) closeAll() {
 func (ctc *cfcTestCtx) listen(fn func(sub *client.SubBox)) chan<- error {
 	ch := make(chan error)
 	go func() {
+		ctc.box1.SwitchListenUP2P(true)
 		err := ctc.box1.ListenSubBox(func(sub *client.SubBox) {
 			fn(sub)
 		})

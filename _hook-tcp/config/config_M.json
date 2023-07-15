@@ -10,7 +10,9 @@
     "?SwitchLinkClient": "",
     "SwitchLinkClient": true,
     "?SwitchUdpP2P": "",
-    "SwitchUdpP2P": false
+    "SwitchUdpP2P": false,
+    "?SwitchAnonymity": "",
+    "SwitchAnonymity": false
   },
   "?ProxyDeviceBox": "",
   "ProxyDeviceBox": {

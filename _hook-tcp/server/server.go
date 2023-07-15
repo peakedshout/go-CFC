@@ -31,6 +31,7 @@ func runServer() {
 		SwitchVPNProxy:   c.ProxyServerHost.SwitchVPNProxy,
 		SwitchLinkClient: c.ProxyServerHost.SwitchLinkClient,
 		SwitchUdpP2P:     c.ProxyServerHost.SwitchUdpP2P,
+		SwitchAnonymity:  c.ProxyServerHost.SwitchAnonymity,
 	}
 
 	err := tool.ReRun(c.Setting.ReLinkTime, func() bool {

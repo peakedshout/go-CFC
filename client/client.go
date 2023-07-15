@@ -9,19 +9,23 @@ import (
 	"time"
 )
 
-func newBox(name, addr, key string) *DeviceBox {
-	if name == "" {
-		loger.SetLogError(tool.ErrNameIsNil)
+func newBox(name, addr, key string, isAnonymity bool) (*DeviceBox, error) {
+	if name == "" && !isAnonymity {
+		return nil, tool.ErrNameIsNil
+		//loger.SetLogError(tool.ErrNameIsNil)
 	}
 	if len(key) != 32 {
-		loger.SetLogError(tool.ErrKeyIsNot32Bytes)
+		return nil, tool.ErrKeyIsNot32Bytes
+		//loger.SetLogError(tool.ErrKeyIsNot32Bytes)
 	}
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		loger.SetLogError("ResolveTCPAddr :", err)
+		return nil, err
+		//loger.SetLogError("ResolveTCPAddr :", err)
 	}
 	box := &DeviceBox{
 		name:             name,
+		isAnonymity:      isAnonymity,
 		disable:          atomic.Bool{},
 		handshake:        atomic.Bool{},
 		addr:             tcpAddr,
@@ -41,10 +45,23 @@ func newBox(name, addr, key string) *DeviceBox {
 		switchListenUP2P: atomic.Bool{},
 		closerOnce:       sync.Once{},
 	}
-	return box
+	return box, nil
 }
+
 func LinkProxyServer(name, addr, key string) (*DeviceBox, error) {
-	box := newBox(name, addr, key)
+	return LinkProxyServerRaw(name, addr, key, false)
+}
+
+func LinkProxyServerFromAnonymity(addr, key string) (*DeviceBox, error) {
+	return LinkProxyServerRaw("", addr, key, true)
+}
+
+func LinkProxyServerRaw(name, addr, key string, isAnonymity bool) (*DeviceBox, error) {
+	box, err := newBox(name, addr, key, isAnonymity)
+	if err != nil {
+		loger.SetLogWarn(err)
+		return nil, err
+	}
 	conn, err := net.DialTCP("tcp", nil, box.addr)
 	if err != nil {
 		loger.SetLogWarn(err)

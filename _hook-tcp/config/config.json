@@ -4,7 +4,8 @@
     "LinkProxyKey": "",
     "SwitchVPNProxy": false,
     "SwitchLinkClient": true,
-    "SwitchUdpP2P": false
+    "SwitchUdpP2P": false,
+    "SwitchAnonymity": false
   },
   "ProxyDeviceBox": {
     "ProxyTcp": {

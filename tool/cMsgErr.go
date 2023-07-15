@@ -33,7 +33,7 @@ var ErrTimeout = errors.New("timeout")
 
 var ErrIsDisable = errors.New("is disable")
 
-var ErrHandshakeIsDad = errors.New("handshake is bad")
+var ErrHandshakeIsBad = errors.New("handshake is bad")
 
 var ErrReqUnexpectedHeader = errors.New("unexpected resp header")
 var ErrReqBadAny = func(a ...any) error { return fmt.Errorf("req bad : %v", a) }

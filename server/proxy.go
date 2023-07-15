@@ -214,14 +214,18 @@ func (pc *ProxyClient) cMsgProxyRegister(cMsg tool.ConnMsg) {
 		if pc.checkErrAndSend400ErrCMsg(tool.HandshakeCheckStepA2, cMsg.Id, err, true) {
 			return
 		}
-		if info.Name == "" {
+		if info.Name != "" {
+			pc.name = info.Name
+		} else if info.Anonymity && pc.ps.config.SwitchAnonymity {
+			info.Name = tool.NewId(2)
+			pc.name = info.Name
+		} else {
 			err = tool.ErrHandleCMsgProxyClientNameIsNil
 			pc.checkErrAndSend400ErrCMsg(tool.HandshakeCheckStepA2, cMsg.Id, err, true)
 			return
 		}
-		pc.name = info.Name
 		pc.ps.setProxyClient(pc.name, pc)
-		pc.writeCMsgAndCheck(tool.HandshakeCheckStepA2, cMsg.Id, 200, nil)
+		pc.writeCMsgAndCheck(tool.HandshakeCheckStepA2, cMsg.Id, 200, info)
 		pc.step += 1
 	}
 }

@@ -15,8 +15,10 @@ type statusStep uint8
 type ProxyClient struct {
 	ps *ProxyServer
 
-	id      string //session id
-	name    string //login name
+	id          string //session id
+	name        string //login name
+	isAnonymity bool
+
 	disable atomic.Bool
 
 	reader    *bufio.Reader

@@ -17,6 +17,7 @@ type ProxyServerHostConfig struct {
 	SwitchVPNProxy   bool   `json:"SwitchVPNProxy"`
 	SwitchLinkClient bool   `json:"SwitchLinkClient"`
 	SwitchUdpP2P     bool   `json:"SwitchUdpP2P"`
+	SwitchAnonymity  bool   `json:"SwitchAnonymity"`
 }
 
 type ProxyDeviceBoxConfig struct {

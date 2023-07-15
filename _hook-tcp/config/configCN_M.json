@@ -10,7 +10,9 @@
     "?SwitchLinkClient": "",
     "SwitchLinkClient": true,
     "?SwitchUdpP2P": "",
-    "SwitchUdpP2P": false
+    "SwitchUdpP2P": false,
+    "?SwitchAnonymity": "",
+    "SwitchAnonymity": false
   },
   "?ProxyDeviceBox": "这里是用于注册客户端设备配置的参数，代理服务器主机不需要该参数。",
   "ProxyDeviceBox": {

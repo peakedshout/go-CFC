@@ -340,3 +340,11 @@ func (sub *SubBox) WriteQueueBytes(b [][]byte) error {
 func (sub *SubBox) Type() string {
 	return sub.subType.String()
 }
+
+func (sub *SubBox) Id() string {
+	return sub.id
+}
+
+func (sub *SubBox) GetRawKey() string {
+	return sub.key.GetRawKey()
+}

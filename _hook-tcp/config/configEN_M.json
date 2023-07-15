@@ -10,7 +10,9 @@
     "?SwitchLinkClient": "",
     "SwitchLinkClient": true,
     "?SwitchUdpP2P": "",
-    "SwitchUdpP2P": false
+    "SwitchUdpP2P": false,
+    "?SwitchAnonymity": "",
+    "SwitchAnonymity": false
   },
   "?ProxyDeviceBox": "This parameter is used to register the client device configuration. The proxy server host does not need this parameter.",
   "ProxyDeviceBox": {
