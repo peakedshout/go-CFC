@@ -109,5 +109,5 @@
 - [x] Supports subkey encryption
 - [ ] Support connection check
 - [x] Support for obtaining network speed
-- [ ] p2p support
+- [x] p2p support
 ***
